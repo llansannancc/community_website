@@ -1,0 +1,17 @@
+{
+  "name": "llansannan-community",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Llansannan Community website: events, news and a moderator area, on Cloudflare.",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --env dev",
+    "db:local": "wrangler d1 migrations apply llansannan --local --env dev && wrangler d1 execute llansannan --local --env dev --file=seed/dev-seed.sql",
+    "db:remote": "wrangler d1 migrations apply llansannan --remote",
+    "deploy": "wrangler deploy",
+    "test": "node tests/sign-in.test.mjs && node tests/moderation-rules.test.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.40.0"
+  }
+}

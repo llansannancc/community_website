@@ -1,0 +1,72 @@
+// Cloudflare settings for the Llansannan Community website.
+// Values marked CHANGE_ME are filled in during setup (see SETUP.md).
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "llansannan-community",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-01",
+
+  // The website files (homepage, admin area, scripts)
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+
+  // STAGE 1 (now): the free address https://llansannan-community.<your-subdomain>.workers.dev
+  // kept private with Cloudflare Access while councillors test it.
+  // STAGE 2 (when the domain is confirmed): set workers_dev to false and un-comment "routes" (see SETUP.md).
+  "workers_dev": true,
+  // "routes": [
+  //   { "pattern": "CHANGE_ME.example", "custom_domain": true }
+  // ],
+
+  // The events/news database. Created with: npx wrangler d1 create llansannan --jurisdiction eu
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "llansannan",
+      "database_id": "CHANGE_ME",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  // Emails to moderators when something needs approving (Cloudflare Email Sending).
+  // STAGE 2: needs the domain, so it's switched off until then. The site works without it.
+  // "send_email": [
+  //   { "name": "EMAIL" }
+  // ],
+
+  // Once a day at 03:15 UTC: remove contact details from events that finished 30+ days ago.
+  "triggers": { "crons": ["15 3 * * *"] },
+
+  "vars": {
+    "ENVIRONMENT": "production",
+    "SITE_URL": "https://llansannan-community.CHANGE_ME.workers.dev",
+    "MAIL_FROM": "notifications@CHANGE_ME.example",
+    // Shown when you turn on Cloudflare Access (see SETUP.md), e.g. llansannan.cloudflareaccess.com (no https://)
+    "ACCESS_TEAM_DOMAIN": "CHANGE_ME.cloudflareaccess.com",
+    // The "AUD tag" shown when you turn on Cloudflare Access
+    "ACCESS_AUD": "CHANGE_ME",
+    // STAGE 2: the Turnstile "site key" (spam check). Not needed while the whole site is private.
+    "TURNSTILE_SITE_KEY": ""
+    // TURNSTILE_SECRET is a secret: npx wrangler secret put TURNSTILE_SECRET
+  },
+
+  "observability": { "enabled": true },
+
+  // Local testing on your own computer: npm run db:local, then npm run dev
+  // You're signed in automatically as DEV_USER_EMAIL (a lead from seed/dev-seed.sql).
+  "env": {
+    "dev": {
+      "d1_databases": [
+        { "binding": "DB", "database_name": "llansannan", "database_id": "local-dev", "migrations_dir": "migrations" }
+      ],
+      "vars": {
+        "ENVIRONMENT": "development",
+        "DEV_USER_EMAIL": "lead1@example.com",
+        "SITE_URL": "http://localhost:8787",
+        "TURNSTILE_SITE_KEY": ""
+      }
+    }
+  }
+}

@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Llansannan Community</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Mulish:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --blue: #3466b0;
+    --blue-dark: #24508f;
+    --blue-soft: #edf3fc;
+    --accent: #9cbcf0;
+    --cream: #f6f9fe;
+    --head: 'Cormorant Garamond', Georgia, serif;
+    --body: 'Mulish', 'Segoe UI', Arial, sans-serif;
+    --head-scale: 1.1;
+    --ink: #1c2329;
+    --muted: #55606b;
+    --line: #dde3e8;
+    --bg: #ffffff;
+    --soft: #f6f8fa;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 18px; }
+  h1, h2, h3 { letter-spacing: -0.01em; }
+  body { font-family: var(--body); color: var(--ink); background: var(--bg); line-height: 1.6; }
+  body.lang-en .cy { display: none; }
+  body.lang-cy .en { display: none; }
+  h1, h2, h3 { font-family: var(--head); font-weight: 600; color: var(--blue-dark); line-height: 1.25; }
+  a { color: var(--blue); text-underline-offset: 3px; }
+  :focus-visible { outline: 3px solid var(--blue-dark); outline-offset: 2px; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
+  .skip { position: absolute; left: -999px; }
+  .skip:focus { left: 8px; top: 8px; background: #fff; padding: 8px; z-index: 99; }
+
+  /* Top line: language only */
+  .langbar { border-bottom: 1px solid var(--line); font-size: 0.85rem; }
+  .langbar .wrap { display: flex; justify-content: flex-end; gap: 4px; padding-top: 4px; padding-bottom: 4px; }
+  .langbar button { background: none; border: none; font: inherit; color: var(--muted); padding: 6px 10px; min-height: 36px; cursor: pointer; }
+  .langbar button.on { color: var(--blue-dark); font-weight: 600; text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: 4px; }
+
+  /* Header: centred emblem + bilingual title */
+  header.site { text-align: center; padding: 18px 16px 14px; }
+  .emblem { width: 64px; height: 64px; margin: 0 auto 8px; border-radius: 50%; border: 2px solid var(--accent); padding: 3px; }
+  .emblem div { width: 100%; height: 100%; border-radius: 50%; background: var(--blue); color: #fff; display: grid; place-items: center; font-family: var(--head); font-weight: 600; font-size: 1.3rem; }
+  .site-title { font-family: var(--head); font-size: calc(2.1rem * var(--head-scale)); font-weight: 600; color: var(--blue-dark); line-height: 1.2; text-decoration: none; display: block; }
+  .site-title small { display: block; font-family: var(--body); font-size: 0.85rem; font-weight: 400; color: var(--muted); margin-top: 2px; }
+
+  /* Navigation */
+  nav { border-top: 1px solid var(--line); border-bottom: 3px solid var(--accent); background: #fff; position: relative; z-index: 10; }
+  .menu-toggle { display: none; width: 100%; background: var(--blue); color: #fff; border: none; font: inherit; font-weight: 600; padding: 13px 16px; text-align: left; cursor: pointer; }
+  nav ul { list-style: none; }
+  .menu { display: flex; justify-content: center; flex-wrap: wrap; }
+  .menu > li { position: relative; }
+  nav a, .drop-btn { display: block; width: 100%; color: var(--ink); text-decoration: none; padding: 12px 16px; font: inherit; font-weight: 500; background: none; border: none; text-align: left; cursor: pointer; }
+  nav a:hover, .drop-btn:hover, nav a.active { color: var(--blue); background: var(--soft); }
+  .drop-btn::after { content: " ▾"; font-size: 0.75em; color: var(--muted); }
+  .sub { display: none; position: absolute; top: 100%; left: 0; min-width: 230px; background: #fff; border: 1px solid var(--line); border-top: 3px solid var(--blue); box-shadow: 0 8px 18px rgba(0,0,0,0.08); }
+  .sub a { font-weight: 400; border-bottom: 1px solid var(--line); }
+  .menu > li:hover > .sub, .menu > li.open > .sub { display: block; }
+
+  /* Sections */
+  section { padding: 40px 0; }
+  section + section { border-top: 1px solid var(--line); }
+  .sec-head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+  .sec-head h2 { font-size: calc(1.9rem * var(--head-scale)); }
+  .sec-head h2::after { content: ""; display: block; width: 48px; height: 3px; background: var(--accent); margin-top: 8px; }
+  p { margin-bottom: 14px; }
+
+  /* Section backgrounds for contrast */
+  section.alt { background: var(--blue-soft); border-top: none; }
+  section.cream { background: var(--cream); border-top: none; }
+  section.dark { background: var(--blue-dark); color: rgba(255,255,255,0.82); border-top: none; }
+  section.dark h2, section.dark h3 { color: #fff; }
+  section.dark a { color: #fff; }
+  section.alt + section, section.cream + section, section.dark + section, section + section.alt { border-top: none; }
+
+  /* Local services band */
+  .services { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.15); }
+  .svc { background: var(--blue-dark); padding: 18px 16px; text-decoration: none; display: flex; flex-direction: column; gap: 4px; }
+  .svc:hover { background: var(--blue); }
+  .svc .ic { font-size: 1.5rem; }
+  .svc strong { color: #fff; font-weight: 500; font-size: 1.05rem; }
+  .svc span.d { color: rgba(255,255,255,0.82); font-size: 0.88rem; line-height: 1.4; }
+  .flood { margin-top: 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 0.95rem; }
+  .flood b { background: var(--accent); color: var(--blue-dark); padding: 2px 8px; border-radius: 3px; font-weight: 500; font-size: 0.8rem; letter-spacing: 0.04em; text-transform: uppercase; }
+
+  /* Hero */
+  .hero { background: var(--blue-dark); color: rgba(255,255,255,0.82); padding: 40px 0; border-top: none; }
+  .hero h1 { color: #fff; }
+  .hero .btn-outline { background: transparent; color: #fff; border-color: #fff; }
+  .hero .btn-primary { background: #fff; color: var(--blue-dark); border-color: #fff; }
+  .hero .btn-primary:hover { background: var(--blue-soft); border-color: var(--blue-soft); }
+  .hero .wrap { display: grid; grid-template-columns: 1.3fr 1fr; gap: 28px; align-items: center; }
+  .hero h1 { font-size: calc(2.4rem * var(--head-scale)); margin-bottom: 8px; }
+  .hero p { color: rgba(255,255,255,0.82); font-size: 1.1rem; font-weight: 300; }
+  .btns { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 50px; padding: 0 22px; border-radius: 4px; font-weight: 600; text-decoration: none; border: 2px solid var(--blue); }
+  .btn-primary { background: var(--blue); color: #fff; }
+  .btn-primary:hover { background: var(--blue-dark); border-color: var(--blue-dark); }
+  .btn-outline { background: #fff; color: var(--blue); }
+  .btn-block { display: flex; width: 100%; margin-bottom: 12px; }
+  .next-box { background: #fff; color: var(--ink); border: none; border-left: 5px solid var(--accent); padding: 18px 20px; }
+  .next-box .lbl { font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--blue); }
+  .next-box h3 { font-size: 1.25rem; margin: 4px 0 6px; }
+  .next-box dl div { display: flex; gap: 8px; font-size: 0.95rem; }
+  .next-box dt { font-weight: 600; min-width: 54px; }
+  .next-box a { display: inline-block; margin-top: 8px; font-weight: 600; }
+
+  /* Welcome */
+  .welcome { display: grid; grid-template-columns: 1.3fr 1fr; gap: 32px; align-items: center; }
+  .welcome figure { margin: 0; }
+  .welcome svg { width: 100%; height: auto; display: block; border-radius: 6px; }
+  .welcome figcaption { font-size: 0.85rem; color: var(--muted); margin-top: 6px; text-align: center; }
+
+  /* Day picker */
+  .tap-hint { font-weight: 500; color: var(--muted); margin-bottom: 10px; }
+  .daystrip { display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 2px 2px 10px; }
+  .dbtn { flex: 0 0 66px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); scroll-snap-align: start; min-height: 88px; border: 2px solid var(--line); background: #fff; border-radius: 6px; font: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--ink); }
+  .dbtn .w { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--muted); }
+  .dbtn .n { font-size: 1.5rem; font-weight: 600; line-height: 1.1; }
+  .dbtn .c { font-size: 0.72rem; min-height: 1.2em; font-weight: 600; color: #fff; background: var(--blue); border-radius: 10px; padding: 0 7px; }
+  .dbtn .c:empty { background: none; }
+  .dbtn.has { border-color: var(--blue); background: var(--blue-soft); }
+  .dbtn.today .w { color: var(--blue); text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 2px; }
+  .dbtn.sel { background: var(--blue); border-color: var(--blue); color: #fff; }
+  .dbtn.sel .w { color: #fff; }
+  .dbtn.sel .c { background: #fff; color: var(--blue); }
+  .day-panel h3 { font-size: 1.15rem; margin: 16px 0 6px; padding-bottom: 6px; border-bottom: 2px solid var(--line); }
+  .row { display: flex; gap: 14px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .row .time { flex-shrink: 0; width: 84px; font-weight: 600; color: var(--blue-dark); }
+  .row .what { flex: 1; min-width: 0; }
+  .row .what strong { display: block; font-size: 1.05rem; }
+  .row .what small { color: var(--muted); font-size: 0.92rem; }
+  .row a.go { flex-shrink: 0; align-self: center; font-weight: 600; white-space: nowrap; }
+  .tag-reg { display: inline-block; font-size: 0.7rem; font-weight: 600; color: var(--muted); border: 1px solid var(--line); padding: 0 6px; border-radius: 3px; margin-left: 6px; vertical-align: middle; }
+  .empty { color: var(--muted); padding: 12px 0; }
+
+  /* Coming up strip */
+  .strip-wrap { position: relative; }
+  .arrows { display: flex; gap: 8px; }
+  .arrow { width: 46px; height: 46px; border-radius: 50%; border: 2px solid var(--blue); background: #fff; color: var(--blue); font-size: 1.3rem; cursor: pointer; }
+  .strip { display: flex; gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 2px 2px 12px; }
+  .ev-card { flex: 0 0 78%; max-width: 290px; scroll-snap-align: start; background: #fff; border: 1px solid var(--line); border-top: 4px solid var(--blue); text-decoration: none; color: var(--ink); display: flex; gap: 14px; padding: 16px; }
+  .ev-card:hover { border-top-color: var(--accent); }
+  .ev-date { flex-shrink: 0; width: 62px; text-align: center; border: 1px solid var(--line); align-self: flex-start; }
+  .ev-date .m { display: block; background: var(--blue); color: #fff; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; padding: 2px 0; }
+  .ev-date .d { display: block; font-family: var(--head); font-size: 1.6rem; font-weight: 600; color: var(--blue-dark); line-height: 1.3; }
+  .ev-date .w { display: block; font-size: 0.7rem; color: var(--muted); padding-bottom: 3px; }
+  .ev-info h3 { font-size: 1.05rem; margin-bottom: 4px; }
+  .ev-info p { font-size: 0.9rem; color: var(--muted); margin: 0; }
+
+  /* Quick access */
+  .quick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .qa { display: flex; flex-direction: column; gap: 6px; padding: 20px; border: 1px solid var(--line); border-radius: 6px; text-decoration: none; color: var(--ink); background: #fff; }
+  .qa:hover { border-color: var(--blue); box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+  .qa h3 { font-size: 1.1rem; }
+  .qa p { font-size: 0.93rem; color: var(--muted); margin: 0; flex: 1; }
+  .qa span.more { font-weight: 600; color: var(--blue); }
+
+  /* News */
+  .news-item { padding: 14px 0; border-bottom: 1px solid var(--line); }
+  .news-item time { font-size: 0.85rem; color: var(--muted); display: block; }
+  .news-item strong { font-size: 1.05rem; }
+
+  /* Inner pages */
+  .page { display: none; }
+  .page.show { display: block; }
+  .inner { padding: 28px 0 44px; }
+  .crumb { font-size: 0.85rem; color: var(--muted); margin-bottom: 6px; }
+  .inner h2.title { font-size: 1.8rem; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+  .inner h3.sub { font-size: 1.2rem; margin: 22px 0 8px; }
+  .table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+  .table th, .table td { border-bottom: 1px solid var(--line); padding: 11px 10px; text-align: left; vertical-align: top; }
+  .table th { width: 38%; color: var(--blue-dark); }
+  .detail-box { border: 1px solid var(--line); border-left: 5px solid var(--accent); padding: 16px 18px; margin-bottom: 18px; }
+  .detail-box div { padding: 3px 0; }
+  .detail-box strong { display: inline-block; min-width: 70px; }
+  .list-row { display: flex; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--line); text-decoration: none; color: var(--ink); }
+  .note { background: var(--soft); padding: 12px 16px; font-size: 0.85rem; border-left: 4px solid var(--blue); margin: 24px 0 0; }
+
+  footer { background: var(--blue-dark); color: rgba(255,255,255,0.82); font-size: 0.92rem; border-top: 4px solid var(--accent); }
+  .foot-cols { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 28px; padding: 32px 16px; max-width: 1040px; margin: 0 auto; }
+  footer h3 { color: #fff; font-size: 1rem; margin-bottom: 8px; }
+  footer a { color: #fff; }
+  footer ul { list-style: none; }
+  footer li { padding: 2px 0; }
+  .foot-base { border-top: 1px solid rgba(255,255,255,0.15); text-align: center; padding: 12px 16px; font-size: 0.8rem; }
+
+  @media (max-width: 760px) {
+    header.site { padding: 12px 16px 10px; }
+    .emblem { width: 50px; height: 50px; margin-bottom: 6px; }
+    .site-title { font-size: 1.4rem; }
+    nav { border-top: none; }
+    .menu-toggle { display: block; }
+    .menu { display: none; flex-direction: column; }
+    nav.open .menu { display: flex; }
+    nav a, .drop-btn { padding: 14px 18px; border-bottom: 1px solid var(--line); }
+    .menu > li:hover > .sub { display: none; }
+    .menu > li.open > .sub { display: block; }
+    .sub { position: static; box-shadow: none; border: none; border-left: 5px solid var(--accent); }
+    .sub a { padding-left: 28px; }
+    section { padding: 28px 0; }
+    .hero { padding: 22px 0; }
+    .hero .wrap, .welcome { grid-template-columns: 1fr; gap: 18px; }
+    .hero h1 { font-size: 1.55rem; }
+    .welcome figure { order: -1; }
+    .quick { grid-template-columns: 1fr; }
+    .services { grid-template-columns: 1fr 1fr; }
+    .foot-cols { grid-template-columns: 1fr; }
+    .row { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; }
+    .row .time { width: auto; }
+    .row .what { grid-column: 1 / -1; grid-row: 2; }
+    .row a.go { grid-column: 2; grid-row: 1; align-self: start; }
+  }
+
+  .strip, .daystrip { scrollbar-width: none; -ms-overflow-style: none; }
+  .strip::-webkit-scrollbar, .daystrip::-webkit-scrollbar { display: none; }
+  #coming-up .ev-card { background: #fff; }
+  .hero { position: relative; overflow: hidden; padding: 76px 0 84px !important; }
+  .hero-bg { position: absolute; inset: 0; }
+  .hero-bg svg { width: 100%; height: 100%; display: block; }
+  .hero::before { content: ""; position: absolute; inset: 0; z-index: 1;
+    background: linear-gradient(90deg, var(--blue-dark) 0%, var(--blue-dark) 38%, rgba(20,45,85,0.55) 70%, rgba(20,45,85,0.25) 100%); }
+  .hero .wrap { position: relative; z-index: 2; }
+  .hero h1 { font-size: calc(3rem * var(--head-scale)) !important; }
+  .hero .kicker { font-size: 0.8rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent) !important; margin-bottom: 4px; }
+  .hero p { max-width: 560px; }
+  .next-box { box-shadow: 0 12px 30px rgba(0,0,0,0.25); }
+  @media (max-width: 760px) {
+    .hero { padding: 40px 0 44px !important; }
+    .hero::before { background: linear-gradient(180deg, var(--blue-dark) 0%, rgba(20,45,85,0.88) 60%, rgba(20,45,85,0.7) 100%); }
+    .hero h1 { font-size: calc(2.2rem * var(--head-scale)) !important; }
+  }
+  /* Village news + Facebook */
+  .news-layout { display: grid; grid-template-columns: 1fr 320px; gap: 28px; align-items: start; }
+  .news-feed { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .news-card { background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 18px; display: flex; flex-direction: column; gap: 6px; }
+  .news-card .meta { display: flex; gap: 10px; align-items: center; font-size: 0.82rem; color: var(--muted); }
+  .news-card .cat { background: var(--blue-soft); color: var(--blue-dark); font-weight: 600; padding: 1px 8px; border-radius: 10px; font-size: 0.75rem; }
+  .news-card h3 { font-size: calc(1.25rem * var(--head-scale)); }
+  .news-card p { font-size: 0.95rem; color: var(--muted); margin: 0; }
+  .news-card details summary { cursor: pointer; font-weight: 600; color: var(--blue); list-style: none; margin-top: 4px; }
+  .news-card details summary::-webkit-details-marker { display: none; }
+  .news-card details[open] summary { display: none; }
+  .news-card details p { color: var(--ink); margin-top: 6px; }
+  .fb-box { background: #fff; border: 1px solid var(--line); border-top: 4px solid var(--blue); border-radius: 6px; padding: 20px; }
+  .fb-head { display: flex; gap: 12px; align-items: center; margin-bottom: 10px; }
+  .fb-head > svg { width: 40px; height: 40px; fill: var(--blue); flex-shrink: 0; }
+  .fb-head strong { display: block; font-size: 1.05rem; }
+  .fb-head small { color: var(--muted); font-size: 0.85rem; }
+  .fb-box p { font-size: 0.95rem; }
+  .fb-btn { width: 100%; gap: 8px; background: var(--blue); color: #fff; }
+  .fb-btn:hover { background: var(--blue-dark); border-color: var(--blue-dark); }
+  .fb-btn svg { width: 20px; height: 20px; fill: #fff; }
+  .fb-small { font-size: 0.85rem !important; color: var(--muted); margin: 12px 0 0; }
+  #news-all .news-card { margin-bottom: 14px; }
+  @media (max-width: 860px) {
+    .news-layout { grid-template-columns: 1fr; }
+    .news-feed { grid-template-columns: 1fr; }
+  }
+  button.btn { font: inherit; font-weight: 600; cursor: pointer; }
+  /* Submit an event form */
+  .form { max-width: 680px; }
+  .form fieldset { border: none; padding: 0; margin: 0 0 22px; }
+  .form legend { font-family: var(--head); font-size: calc(1.35rem * var(--head-scale)); font-weight: 600; color: var(--blue-dark); margin-bottom: 8px; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-weight: 600; margin-bottom: 4px; }
+  .field .hint { display: block; font-size: 0.85rem; color: var(--muted); font-weight: 400; }
+  .field input, .field textarea { width: 100%; font: inherit; padding: 11px 12px; border: 1px solid #b9c3cd; border-radius: 4px; background: #fff; min-height: 48px; }
+  .field textarea { min-height: 120px; resize: vertical; }
+  .field input:focus, .field textarea:focus { outline: 3px solid var(--accent); border-color: var(--blue); }
+  .row3 { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 12px; }
+  .check { display: flex; gap: 10px; align-items: flex-start; margin: 8px 0 16px; }
+  .check input { width: 24px; height: 24px; margin-top: 2px; flex-shrink: 0; }
+  .hp { position: absolute; left: -5000px; }
+  #ts-widget { margin: 6px 0 14px; }
+  .form-msg { margin-top: 12px; font-weight: 600; }
+  .form-msg.bad { color: #a12020; }
+  .done-box { background: var(--blue-soft); border-left: 5px solid var(--blue); padding: 22px; border-radius: 4px; max-width: 680px; }
+  .done-box h3 { font-size: calc(1.5rem * var(--head-scale)); margin-bottom: 6px; }
+  .req { color: var(--blue); }
+  @media (max-width: 760px) { .row3 { grid-template-columns: 1fr 1fr; } .row3 .field:first-child { grid-column: 1 / -1; } }
+</style>
+</head>
+<body class="lang-en">
+<a class="skip" href="#main">Skip to main content</a>
+
+<div class="langbar">
+  <div class="wrap">
+    <button id="b-en" class="on" onclick="setLang('en')">English</button>
+    <button id="b-cy" onclick="setLang('cy')">Cymraeg</button>
+  </div>
+</div>
+
+<header class="site">
+  <div class="emblem"><div>Ll</div></div>
+  <a class="site-title" href="#home"><span class="en">Llansannan Community</span><span class="cy">Cymuned Llansannan</span>
+    <small><span class="en">Bro Aled, Conwy · Community events and village life</span><span class="cy">Bro Aled, Conwy · Digwyddiadau a bywyd y pentref</span></small></a>
+</header>
+
+<nav id="nav" aria-label="Main">
+  <button class="menu-toggle" onclick="document.getElementById('nav').classList.toggle('open')">☰ <span class="en">Menu</span><span class="cy">Dewislen</span></button>
+  <ul class="menu">
+    <li><a href="#home" data-p="home"><span class="en">Home</span><span class="cy">Hafan</span></a></li>
+    <li><button class="drop-btn"><span class="en">What's On</span><span class="cy">Beth Sydd Ymlaen</span></button>
+      <ul class="sub">
+        <li><a href="#events"><span class="en">All events</span><span class="cy">Pob digwyddiad</span></a></li>
+        <li><a href="#groups"><span class="en">Weekly sessions</span><span class="cy">Sesiynau wythnosol</span></a></li>
+        <li><a href="#submit"><span class="en">Submit an event</span><span class="cy">Cyflwyno digwyddiad</span></a></li>
+      </ul></li>
+    <li><button class="drop-btn"><span class="en">Our Village</span><span class="cy">Ein Pentref</span></button>
+      <ul class="sub">
+        <li><a href="#history"><span class="en">History of the area</span><span class="cy">Hanes yr ardal</span></a></li>
+        <li><a href="#history"><span class="en">Historical walks</span><span class="cy">Teithiau cerdded hanesyddol</span></a></li>
+        <li><a href="#visiting"><span class="en">Visiting Llansannan</span><span class="cy">Ymweld â Llansannan</span></a></li>
+      </ul></li>
+    <li><button class="drop-btn"><span class="en">Community</span><span class="cy">Cymuned</span></button>
+      <ul class="sub">
+        <li><a href="#hall"><span class="en">Village Hall</span><span class="cy">Neuadd y Pentref</span></a></li>
+        <li><a href="#groups"><span class="en">Clubs &amp; Groups</span><span class="cy">Clybiau a Grwpiau</span></a></li>
+        <li><a href="#services"><span class="en">Local services</span><span class="cy">Gwasanaethau lleol</span></a></li>
+      </ul></li>
+    <li><a href="#news" data-p="news"><span class="en">News</span><span class="cy">Newyddion</span></a></li>
+    <li><a href="#contact" data-p="contact"><span class="en">Contact</span><span class="cy">Cysylltu</span></a></li>
+  </ul>
+</nav>
+
+<main id="main">
+
+<!-- ================= HOME ================= -->
+<div class="page" id="page-home">
+
+  <section class="hero">
+    <div class="hero-bg"><svg viewBox="0 0 600 340" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+          <rect width="600" height="340" fill="#dcebf4"/>
+          <circle cx="470" cy="80" r="30" fill="#f2d58a"/>
+          <path d="M0 190 Q120 110 260 165 T600 150 V340 H0Z" fill="#9db8a0"/>
+          <path d="M0 230 Q160 170 330 220 T600 210 V340 H0Z" fill="#6f9877"/>
+          <path d="M0 280 Q200 240 380 275 T600 265 V340 H0Z" fill="#4c7a58"/>
+          <path d="M0 320 Q200 290 360 310 T600 300" stroke="#bcd6e3" stroke-width="9" fill="none"/>
+          <g fill="#2f3b45"><rect x="270" y="196" width="18" height="40"/><polygon points="267,198 279,170 291,198"/>
+            <rect x="288" y="214" width="40" height="22"/><polygon points="285,216 308,201 331,216"/>
+            <rect x="340" y="222" width="26" height="15"/><polygon points="337,224 353,213 369,224"/>
+            <rect x="228" y="224" width="28" height="14"/><polygon points="225,226 242,215 259,226"/></g>
+        </svg></div>
+    <div class="wrap">
+      <div>
+        <p class="kicker">Croeso · Welcome</p>
+        <h1><span class="en">Welcome to Llansannan</span><span class="cy">Croeso i Lansannan</span></h1>
+        <p><span class="en">A Welsh-speaking rural community on the banks of the River Aled, taking in Bylchau, Y Groes and the farms around them. Run by local volunteers so everyone can easily see what's happening in the village.</span><span class="cy">Cymuned wledig Gymraeg ar lan Afon Aled, sy'n cynnwys Bylchau, Y Groes a'r ffermydd o'u cwmpas. Gwirfoddolwyr lleol sy'n ei rhedeg er mwyn i bawb weld yn hawdd beth sy'n digwydd yn y pentref.</span></p>
+        <div class="btns">
+          <a class="btn btn-primary" href="#whats-on-now"><span class="en">What's on</span><span class="cy">Beth sydd ymlaen</span></a>
+          <a class="btn btn-outline" href="#submit"><span class="en">Submit an event</span><span class="cy">Cyflwyno digwyddiad</span></a>
+        </div>
+      </div>
+      <div class="next-box" id="next-box"></div>
+    </div>
+  </section>
+
+  <section class="alt" id="coming-up">
+    <div class="wrap">
+      <div class="sec-head">
+        <h2><span class="en">Coming up</span><span class="cy">I ddod</span></h2>
+        <div class="arrows">
+          <button class="arrow" onclick="scrollStrip(-1)" aria-label="Previous">‹</button>
+          <button class="arrow" onclick="scrollStrip(1)" aria-label="Next">›</button>
+        </div>
+      </div>
+      <div class="strip" id="strip"></div>
+    </div>
+  </section>
+
+  <section class="dark">
+    <div class="wrap">
+      <div class="sec-head"><h2><span class="en">Local services</span><span class="cy">Gwasanaethau lleol</span></h2><a href="#services"><span class="en">All local information ›</span><span class="cy">Pob gwybodaeth leol ›</span></a></div>
+      <div class="services">
+        <a class="svc" href="#services"><span class="ic">🛒</span><strong>Siop y Llan</strong><span class="d"><span class="en">Village shop</span><span class="cy">Siop y pentref</span></span></a>
+        <a class="svc" href="#services"><span class="ic">🩺</span><strong>Y Feddygfa</strong><span class="d"><span class="en">Doctors' surgery</span><span class="cy">Meddygfa</span></span></a>
+        <a class="svc" href="#services"><span class="ic">📚</span><strong><span class="en">Mobile Library</span><span class="cy">Llyfrgell Symudol</span></strong><span class="d"><span class="en">Dates and stops</span><span class="cy">Dyddiadau ac arosfannau</span></span></a>
+        <a class="svc" href="#services"><span class="ic">❤️</span><strong><span class="en">Defibrillator</span><span class="cy">Diffibriliwr</span></strong><span class="d"><span class="en">Where to find it</span><span class="cy">Ble mae o</span></span></a>
+        <a class="svc" href="#services"><span class="ic">🏫</span><strong>Canolfan Bro Aled</strong><span class="d"><span class="en">School and community centre</span><span class="cy">Ysgol a chanolfan gymunedol</span></span></a>
+      </div>
+      <p class="flood"><b><span class="en">Flooding</span><span class="cy">Llifogydd</span></b><span class="en">24-hour flood line:</span><span class="cy">Llinell llifogydd 24 awr:</span> <a href="tel:01492577999"><strong>01492 577999</strong></a></p>
+    </div>
+  </section>
+
+  <section id="whats-on-now">
+    <div class="wrap">
+      <div class="sec-head">
+        <h2><span class="en">What's on</span><span class="cy">Beth sydd ymlaen</span></h2>
+        <a href="#events"><span class="en">Full list of events ›</span><span class="cy">Rhestr lawn ›</span></a>
+      </div>
+      <p class="tap-hint"><span class="en">Tap a day to see what's on. The number shows how many events there are.</span><span class="cy">Pwyswch ar ddiwrnod i weld beth sydd ymlaen. Mae'r rhif yn dangos faint o ddigwyddiadau sydd.</span></p>
+      <div class="daystrip" id="d-strip"></div>
+      <div class="day-panel" id="d-day"></div>
+    </div>
+  </section>
+
+  <section class="alt" id="village-news">
+    <div class="wrap">
+      <div class="sec-head">
+        <h2><span class="en">Village news</span><span class="cy">Newyddion y pentref</span></h2>
+        <a href="#news"><span class="en">All news ›</span><span class="cy">Pob newyddion ›</span></a>
+      </div>
+      <div class="news-layout">
+        <div class="news-feed" id="news-feed"></div>
+        <aside class="fb-box">
+          <div class="fb-head"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 12a10 10 0 1 0-11.56 9.88v-6.99H7.9V12h2.54V9.8c0-2.5 1.49-3.89 3.78-3.89 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.78l-.44 2.89h-2.34v6.99A10 10 0 0 0 22 12z"/></svg><div><strong><span class="en">Village Facebook group</span><span class="cy">Grŵp Facebook y pentref</span></strong><small><span class="en">Where most of the village chats day to day</span><span class="cy">Lle mae'r rhan fwyaf o'r pentref yn sgwrsio</span></small></div></div>
+          <p><span class="en">For quick updates, lost and found, recommendations and photos, join the village group on Facebook. Important news is also posted here on the website for anyone not on Facebook.</span><span class="cy">Am ddiweddariadau cyflym, pethau coll, argymhellion a lluniau, ymunwch â grŵp y pentref ar Facebook. Mae newyddion pwysig hefyd yn cael ei roi yma ar y wefan i bawb sydd ddim ar Facebook.</span></p>
+          <a class="btn fb-btn" href="https://www.facebook.com/groups/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 12a10 10 0 1 0-11.56 9.88v-6.99H7.9V12h2.54V9.8c0-2.5 1.49-3.89 3.78-3.89 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.78l-.44 2.89h-2.34v6.99A10 10 0 0 0 22 12z"/></svg><span class="en">Join the group on Facebook</span><span class="cy">Ymuno â'r grŵp ar Facebook</span></a>
+          <p class="fb-small"><span class="en">Something to share? Post it in the group, or</span><span class="cy">Rhywbeth i'w rannu? Rhowch o yn y grŵp, neu</span> <a href="#submit"><span class="en">send it to us</span><span class="cy">anfonwch o atom ni</span></a>.</p>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <section class="cream">
+    <div class="wrap">
+      <div class="sec-head"><h2><span class="en">Quick access</span><span class="cy">Mynediad cyflym</span></h2></div>
+      <div class="quick">
+        <a class="qa" href="#events"><h3><span class="en">Events</span><span class="cy">Digwyddiadau</span></h3><p><span class="en">Every upcoming event, with dates, times and places.</span><span class="cy">Pob digwyddiad i ddod, gyda dyddiadau, amseroedd a lleoliadau.</span></p><span class="more"><span class="en">View events ›</span><span class="cy">Gweld ›</span></span></a>
+        <a class="qa" href="#hall"><h3><span class="en">Village Hall</span><span class="cy">Neuadd y Pentref</span></h3><p><span class="en">Facilities, prices and how to book the hall.</span><span class="cy">Cyfleusterau, prisiau a sut i archebu'r neuadd.</span></p><span class="more"><span class="en">Book the hall ›</span><span class="cy">Archebu ›</span></span></a>
+        <a class="qa" href="#groups"><h3><span class="en">Clubs &amp; Groups</span><span class="cy">Clybiau a Grwpiau</span></h3><p><span class="en">Côr Meibion, football, Young Farmers, Menter Bro Aled and more.</span><span class="cy">Côr Meibion, pêl-droed, Ffermwyr Ifanc, Menter Bro Aled a mwy.</span></p><span class="more"><span class="en">Find a group ›</span><span class="cy">Dod o hyd i grŵp ›</span></span></a>
+        <a class="qa" href="#history"><h3><span class="en">History</span><span class="cy">Hanes</span></h3><p><span class="en">The church, the writers and the story of the parish.</span><span class="cy">Yr eglwys, yr awduron a hanes y plwyf.</span></p><span class="more"><span class="en">Read more ›</span><span class="cy">Darllen mwy ›</span></span></a>
+        <a class="qa" href="#visiting"><h3><span class="en">Visiting</span><span class="cy">Ymweld</span></h3><p><span class="en">Getting here, walks and places to see nearby.</span><span class="cy">Cyrraedd, teithiau cerdded a llefydd i'w gweld.</span></p><span class="more"><span class="en">Plan a visit ›</span><span class="cy">Cynllunio ›</span></span></a>
+        <a class="qa" href="#submit"><h3><span class="en">Submit an event</span><span class="cy">Ychwanegu digwyddiad</span></h3><p><span class="en">Running something local? We'll list it free of charge.</span><span class="cy">Yn trefnu rhywbeth lleol? Fe wnawn ei restru am ddim.</span></p><span class="more"><span class="en">Tell us ›</span><span class="cy">Dywedwch wrthym ›</span></span></a>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- ================= INNER PAGES ================= -->
+<div class="page wrap inner" id="page-news">
+  <div class="crumb"><a href="#home"><span class="en">Home</span><span class="cy">Hafan</span></a> › <span class="en">News</span><span class="cy">Newyddion</span></div>
+  <h2 class="title"><span class="en">Village news</span><span class="cy">Newyddion y pentref</span></h2>
+  <div id="news-all"></div>
+</div>
+
+<div class="page wrap inner" id="page-events">
+  <div class="crumb"><a href="#home"><span class="en">Home</span><span class="cy">Hafan</span></a> › <span class="en">Events</span><span class="cy">Digwyddiadau</span></div>
+  <h2 class="title"><span class="en">All upcoming events</span><span class="cy">Pob digwyddiad i ddod</span></h2>
+  <div id="full-list"></div>
+</div>
+
+<div class="page wrap inner" id="page-event">
+  <div class="crumb"><a href="#home"><span class="en">Home</span><span class="cy">Hafan</span></a> › <a href="#events"><span class="en">Events</span><span class="cy">Digwyddiadau</span></a></div>
+  <div id="detail"></div>
+</div>
+
+<div class="page wrap inner" id="page-history">
+  <div class="crumb"><a href="#home"><span class="en">Home</span><span class="cy">Hafan</span></a> › <span class="en">History</span><span class="cy">Hanes</span></div>
+  <h2 class="title"><span class="en">History of the area</span><span class="cy">Hanes yr ardal</span></h2>
+  <p><span class="en">Llansannan lies on the River Aled, below the moorland of Mynydd Hiraethog, and has a long Welsh-language and literary tradition.</span><span class="cy">Saif Llansannan ar lan Afon Aled, islaw rhostir Mynydd Hiraethog, ac mae ganddi draddodiad Cymraeg a llenyddol hir.</span></p>
+  <h3 class="sub"><span class="en">The church and village</span><span class="cy">Yr eglwys a'r pentref</span></h3>
+  <p><span class="en">The village takes its name from St Sannan, to whom the parish church is dedicated. For centuries it served the surrounding farms, with its own shops, craftsmen, chapels and fairs.</span><span class="cy">Mae'r pentref yn cael ei enw gan Sant Sannan, nawddsant eglwys y plwyf. Am ganrifoedd bu'n gwasanaethu'r ffermydd o'i amgylch, gyda'i siopau, crefftwyr, capeli a ffeiriau.</span></p>
+  <h3 class="sub"><span class="en">A literary parish</span><span class="cy">Plwyf llenyddol</span></h3>
+  <p><span class="en">William Salesbury, one of the translators of the Welsh New Testament, lived here. The statue of a young girl in the village centre remembers the parish's writers and poets.</span><span class="cy">Bu William Salesbury, un o gyfieithwyr y Testament Newydd Cymraeg, yn byw yma. Mae cerflun y ferch fach yng nghanol y pentref yn cofio awduron a beirdd y plwyf.</span></p>
+  <h3 class="sub"><span class="en">Explore more</span><span class="cy">Darganfod mwy</span></h3>
+  <table class="table">
+    <tr><th><span class="en">Historical walks</span><span class="cy">Teithiau cerdded hanesyddol</span></th><td><span class="en">Routes around the village and parish</span><span class="cy">Llwybrau o gwmpas y pentref a'r plwyf</span></td></tr>
+    <tr><th><span class="en">The Great War in Bro Aled</span><span class="cy">Y Rhyfel Mawr ym Mro Aled</span></th><td><span class="en">Local men who served, and those remembered</span><span class="cy">Dynion lleol a wasanaethodd, a'r rhai a gofir</span></td></tr>
+    <tr><th><span class="en">North Wales Pilgrim's Way</span><span class="cy">Taith Pererin Gogledd Cymru</span></th><td><span class="en">The pilgrim route through the area</span><span class="cy">Llwybr y pererinion drwy'r ardal</span></td></tr>
+    <tr><th><span class="en">Court of Estrays</span><span class="cy">Llys Defaid Crwydredig</span></th><td><span class="en">An old local custom for stray sheep</span><span class="cy">Hen arferiad lleol ar gyfer defaid crwydr</span></td></tr>
+  </table>
+  <h3 class="sub"><span class="en">Share your memories</span><span class="cy">Rhannwch eich atgofion</span></h3>
+  <p><span class="en">If you have old photographs or stories of the village, we would love to hear from you.</span><span class="cy">Os oes gennych hen luniau neu straeon am y pentref, byddem wrth ein bodd yn clywed gennych.</span> <a href="#contact"><span class="en">Get in touch</span><span class="cy">Cysylltwch</span></a>.</p>
+</div>
+
+<div class="page wrap inner" id="page-hall">
+  <div class="crumb"><a href="#home"><span class="en">Home</span><span class="cy">Hafan</span></a> › <span class="en">Village Hall</span><span class="cy">Neuadd y Pentref</span></div>
+  <h2 class="title"><span class="en">Village Hall</span><span class="cy">Neuadd y Pentref</span></h2>
+  <p><span class="en">The community centre is available to hire for parties, meetings, classes and celebrations.</span><span class="cy">Mae'r ganolfan gymunedol ar gael i'w llogi ar gyfer partïon, cyfarfodydd, dosbarthiadau a dathliadau.</span></p>
+  <table class="table">
+    <tr><th><span class="en">Facilities</span><span class="cy">Cyfleusterau</span></th><td><span class="en">Kitchen, stage, parking, step-free access</span><span class="cy">Cegin, llwyfan, parcio, mynediad heb risiau</span></td></tr>
+    <tr><th><span class="en">Hire charges</span><span class="cy">Prisiau llogi</span></th><td>[ ]</td></tr>
+    <tr><th><span class="en">Bookings</span><span class="cy">Archebu</span></th><td>[ ]</td></tr>
+  </table>
+  <a class="btn btn-primary" href="tel:00000000000"><span class="en">Telephone to book</span><span class="cy">Ffoniwch i archebu</span></a>
+</div>
+
+<div class="page wrap inner" id="page-groups">
+  <div class="crumb"><a href="#home"><span class="en">Home</span><span class="cy">Hafan</span></a> › <span class="en">Clubs &amp; Groups</span><span class="cy">Clybiau a Grwpiau</span></div>
+  <h2 class="title"><span class="en">Clubs and groups</span><span class="cy">Clybiau a grwpiau</span></h2>
+  <table class="table">
+    <tr><th><span class="en">Toddler group</span><span class="cy">Cylch Ti a Fi</span></th><td><span class="en">Tuesdays, 10am · Village Hall</span><span class="cy">Dydd Mawrth, 10yb · Neuadd y Pentref</span></td></tr>
+    <tr><th>Côr Meibion</th><td><span class="en">Male voice choir · rehearsal times [ ]</span><span class="cy">Côr meibion · amseroedd ymarfer [ ]</span></td></tr>
+    <tr><th>CPD Llansannan FC</th><td><span class="en">Village football club</span><span class="cy">Clwb pêl-droed y pentref</span></td></tr>
+    <tr><th>Cymdeithas Chwaraeon</th><td><span class="en">Sports Association</span><span class="cy">Cymdeithas Chwaraeon Llansannan</span></td></tr>
+    <tr><th>Clwb Ffermwyr Ifanc Llansannan</th><td><span class="en">Young Farmers' Club</span><span class="cy">Clwb Ffermwyr Ifanc</span></td></tr>
+    <tr><th>Menter Bro Aled</th><td><span class="en">Community enterprise for the area</span><span class="cy">Menter gymunedol yr ardal</span></td></tr>
+    <tr><th>Eisteddfod Bro Aled</th><td><span class="en">The local eisteddfod</span><span class="cy">Eisteddfod leol yr ardal</span></td></tr>
+    <tr><th>Y Ddarllenfa</th><td><span class="en">The Institute / reading room</span><span class="cy">Y Sefydliad</span></td></tr>
+    <tr><th><span class="en">Coffee morning</span><span class="cy">Bore coffi</span></th><td><span class="en">First Wednesday of the month, 10am</span><span class="cy">Dydd Mercher cyntaf y mis, 10yb</span></td></tr>
+  </table>
+</div>
+
+<div class="page wrap inner" id="page-services">
+  <div class="crumb"><a href="#home"><span class="en">Home</span><span class="cy">Hafan</span></a> › <span class="en">Local services</span><span class="cy">Gwasanaethau lleol</span></div>
+  <h2 class="title"><span class="en">Local services</span><span class="cy">Gwasanaethau lleol</span></h2>
+  <table class="table">
+    <tr><th>Siop y Llan</th><td><span class="en">Village shop · opening hours [ ]</span><span class="cy">Siop y pentref · oriau agor [ ]</span></td></tr>
+    <tr><th>Y Feddygfa</th><td><span class="en">Doctors' surgery · opening hours and phone [ ]</span><span class="cy">Meddygfa · oriau agor a ffôn [ ]</span></td></tr>
+    <tr><th><span class="en">Mobile Library</span><span class="cy">Llyfrgell Symudol</span></th><td><span class="en">Visit dates and stopping places [ ]</span><span class="cy">Dyddiadau ymweld ac arosfannau [ ]</span></td></tr>
+    <tr><th><span class="en">Community defibrillator</span><span class="cy">Diffibriliwr cymunedol</span></th><td><span class="en">Location [ ]. In an emergency always call 999.</span><span class="cy">Lleoliad [ ]. Mewn argyfwng ffoniwch 999 bob amser.</span></td></tr>
+    <tr><th>Canolfan Addysg Bro Aled</th><td><span class="en">School and community centre</span><span class="cy">Ysgol a chanolfan gymunedol</span></td></tr>
+    <tr><th><span class="en">Flooding</span><span class="cy">Llifogydd</span></th><td><span class="en">24-hour flood response line:</span><span class="cy">Llinell ymateb llifogydd 24 awr:</span> <a href="tel:01492577999">01492 577999</a></td></tr>
+  </table>
+</div>
+
+<div class="page wrap inner" id="page-visiting">
+  <div class="crumb"><a href="#home"><span class="en">Home</span><span class="cy">Hafan</span></a> › <span class="en">Visiting</span><span class="cy">Ymweld</span></div>
+  <h2 class="title"><span class="en">Visiting Llansannan</span><span class="cy">Ymweld â Llansannan</span></h2>
+  <p><span class="en">Llansannan is on the A544, about seven miles from both Denbigh and Abergele. Riverside paths, the Hiraethog moorland and Llyn Aled make it a pleasant base for walking.</span><span class="cy">Mae Llansannan ar yr A544, tua saith milltir o Ddinbych ac o Abergele. Mae llwybrau glan yr afon, rhostir Hiraethog a Llyn Aled yn ei gwneud yn lle braf i gerdded.</span></p>
+  <a class="btn btn-outline" href="https://www.google.com/maps/search/?api=1&query=Llansannan" target="_blank" rel="noopener"><span class="en">View Llansannan on a map</span><span class="cy">Gweld Llansannan ar fap</span></a>
+</div>
+
+<div class="page wrap inner" id="page-submit">
+  <div class="crumb"><a href="#home"><span class="en">Home</span><span class="cy">Hafan</span></a> › <span class="en">Submit an event</span><span class="cy">Cyflwyno digwyddiad</span></div>
+  <h2 class="title"><span class="en">Submit an event</span><span class="cy">Cyflwyno digwyddiad</span></h2>
+  <p class="form"><span class="en">Tell us about something happening in or near Llansannan. A volunteer moderator will check it, usually within a couple of days, before it appears on the website.</span><span class="cy">Dywedwch wrthym am rywbeth sy'n digwydd yn Llansannan neu gerllaw. Bydd cymedrolwr gwirfoddol yn ei wirio, fel arfer o fewn diwrnod neu ddau, cyn iddo ymddangos ar y wefan.</span></p>
+
+  <form id="submit-form" class="form" novalidate>
+    <fieldset>
+      <legend><span class="en">About the event</span><span class="cy">Am y digwyddiad</span></legend>
+      <div class="field"><label for="f-title"><span class="en">Event name</span><span class="cy">Enw'r digwyddiad</span> <span class="req">*</span></label>
+        <input id="f-title" name="title_en" required maxlength="120"></div>
+      <div class="field"><label for="f-title-cy"><span class="en">Event name in Welsh</span><span class="cy">Enw'r digwyddiad yn Gymraeg</span> <span class="hint"><span class="en">Optional</span><span class="cy">Dewisol</span></span></label>
+        <input id="f-title-cy" name="title_cy" maxlength="120"></div>
+      <div class="row3">
+        <div class="field"><label for="f-date"><span class="en">Date</span><span class="cy">Dyddiad</span> <span class="req">*</span></label><input id="f-date" name="date" type="date" required></div>
+        <div class="field"><label for="f-start"><span class="en">Starts</span><span class="cy">Dechrau</span> <span class="req">*</span></label><input id="f-start" name="start" type="time" required></div>
+        <div class="field"><label for="f-end"><span class="en">Ends</span><span class="cy">Gorffen</span></label><input id="f-end" name="end" type="time"></div>
+      </div>
+      <div class="field"><label for="f-loc"><span class="en">Where</span><span class="cy">Lle</span> <span class="req">*</span> <span class="hint"><span class="en">For example: Village Hall, Llansannan</span><span class="cy">Er enghraifft: Neuadd y Pentref, Llansannan</span></span></label>
+        <input id="f-loc" name="location_en" required maxlength="120"></div>
+      <div class="field"><label for="f-desc"><span class="en">Description</span><span class="cy">Disgrifiad</span> <span class="hint"><span class="en">What's happening, tickets, who it's for</span><span class="cy">Beth sy'n digwydd, tocynnau, i bwy mae o</span></span></label>
+        <textarea id="f-desc" name="description_en" maxlength="2000"></textarea></div>
+      <div class="field"><label for="f-desc-cy"><span class="en">Description in Welsh</span><span class="cy">Disgrifiad yn Gymraeg</span> <span class="hint"><span class="en">Optional</span><span class="cy">Dewisol</span></span></label>
+        <textarea id="f-desc-cy" name="description_cy" maxlength="2000"></textarea></div>
+      <div class="field"><label for="f-org"><span class="en">Organised by</span><span class="cy">Trefnwyd gan</span> <span class="hint"><span class="en">Club, group or person — shown on the website</span><span class="cy">Clwb, grŵp neu berson — yn cael ei ddangos ar y wefan</span></span></label>
+        <input id="f-org" name="organiser" maxlength="120"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend><span class="en">Your details</span><span class="cy">Eich manylion</span></legend>
+      <p class="hint" style="margin-bottom:10px"><span class="en">Only our moderators see these, in case they need to check something with you. They are never shown on the website.</span><span class="cy">Dim ond ein cymedrolwyr sy'n gweld y rhain, rhag ofn bod angen gwirio rhywbeth gyda chi. Nid ydynt byth yn cael eu dangos ar y wefan.</span></p>
+      <div class="field"><label for="f-name"><span class="en">Your name</span><span class="cy">Eich enw</span> <span class="req">*</span></label><input id="f-name" name="contact_name" required maxlength="120" autocomplete="name"></div>
+      <div class="field"><label for="f-email"><span class="en">Your email</span><span class="cy">Eich e-bost</span> <span class="req">*</span></label><input id="f-email" name="contact_email" type="email" required maxlength="200" autocomplete="email"></div>
+      <div class="field"><label for="f-phone"><span class="en">Phone</span><span class="cy">Ffôn</span> <span class="hint"><span class="en">Optional</span><span class="cy">Dewisol</span></span></label><input id="f-phone" name="contact_phone" type="tel" maxlength="40" autocomplete="tel"></div>
+      <div class="hp" aria-hidden="true"><label>Leave this empty <input name="website" tabindex="-1" autocomplete="off"></label></div>
+      <label class="check"><input type="checkbox" name="consent" required>
+        <span><span class="en">I agree to my details being used to check this event, as explained in the</span><span class="cy">Rwy'n cytuno i'm manylion gael eu defnyddio i wirio'r digwyddiad hwn, fel yr esbonnir yn yr</span> <a href="#privacy" target="_blank"><span class="en">privacy notice</span><span class="cy">hysbysiad preifatrwydd</span></a>.</span></label>
+    </fieldset>
+    <div id="ts-widget"></div>
+    <button class="btn btn-primary" type="submit"><span class="en">Send for approval</span><span class="cy">Anfon i'w gymeradwyo</span></button>
+    <p id="submit-msg" class="form-msg" role="status" aria-live="polite"></p>
+  </form>
+
+  <div id="submit-done" class="done-box" hidden>
+    <h3><span class="en">Thank you — diolch!</span><span class="cy">Diolch yn fawr!</span></h3>
+    <p><span class="en">Your event has been sent to our moderators. Once it's approved it will appear on the website. If they need to check anything, they'll email you.</span><span class="cy">Mae eich digwyddiad wedi'i anfon at ein cymedrolwyr. Unwaith y caiff ei gymeradwyo bydd yn ymddangos ar y wefan. Os oes angen gwirio rhywbeth, byddant yn anfon e-bost atoch.</span></p>
+    <button id="submit-again" class="btn btn-outline" type="button"><span class="en">Submit another event</span><span class="cy">Cyflwyno digwyddiad arall</span></button>
+  </div>
+</div>
+
+<div class="page wrap inner" id="page-privacy">
+  <div class="crumb"><a href="#home"><span class="en">Home</span><span class="cy">Hafan</span></a> › <span class="en">Privacy</span><span class="cy">Preifatrwydd</span></div>
+  <h2 class="title"><span class="en">Privacy notice</span><span class="cy">Hysbysiad preifatrwydd</span></h2>
+  <div class="form">
+    <p><span class="en">This community website is supported by Llansannan Community Council (Cyngor Cymuned Llansannan) and run by councillors and local volunteers. The Council is responsible for any personal information collected through the website (it is the "data controller"). We keep personal information to a minimum.</span><span class="cy">Cefnogir y wefan gymunedol hon gan Gyngor Cymuned Llansannan ac fe'i rhedir gan gynghorwyr a gwirfoddolwyr lleol. Y Cyngor sy'n gyfrifol am unrhyw wybodaeth bersonol a gesglir drwy'r wefan (ef yw'r "rheolydd data"). Rydym yn cadw cyn lleied o wybodaeth bersonol â phosibl.</span></p>
+    <h3 class="sub"><span class="en">When you submit an event</span><span class="cy">Pan fyddwch yn cyflwyno digwyddiad</span></h3>
+    <p><span class="en">We ask for your name, email and (optionally) phone number so a moderator can contact you about your event. Only our moderators (councillors and appointed volunteers) can see these details. They are never shown on the website, shared or used for anything else. They are deleted automatically 30 days after your event has taken place.</span><span class="cy">Rydym yn gofyn am eich enw, e-bost a (dewisol) rhif ffôn er mwyn i gymedrolwr allu cysylltu â chi am eich digwyddiad. Dim ond ein cymedrolwyr (cynghorwyr a gwirfoddolwyr penodedig) all weld y manylion hyn. Nid ydynt byth yn cael eu dangos ar y wefan, eu rhannu na'u defnyddio i unrhyw beth arall. Cânt eu dileu yn awtomatig 30 diwrnod ar ôl i'ch digwyddiad gael ei gynnal.</span></p>
+    <h3 class="sub"><span class="en">Where it's stored</span><span class="cy">Ble mae'n cael ei gadw</span></h3>
+    <p><span class="en">The website and its database are hosted by Cloudflare, with the database kept in the European Union. The form uses Cloudflare Turnstile to stop spam.</span><span class="cy">Mae'r wefan a'i chronfa ddata yn cael eu cynnal gan Cloudflare, gyda'r gronfa ddata yn yr Undeb Ewropeaidd. Mae'r ffurflen yn defnyddio Cloudflare Turnstile i atal sbam.</span></p>
+    <h3 class="sub"><span class="en">Your rights</span><span class="cy">Eich hawliau</span></h3>
+    <p><span class="en">You can ask to see, correct or delete your details at any time by contacting the Clerk to Llansannan Community Council:</span><span class="cy">Gallwch ofyn i weld, cywiro neu ddileu eich manylion ar unrhyw adeg drwy gysylltu â Chlerc Cyngor Cymuned Llansannan:</span> [clerk email address].
+    <span class="en">If you're unhappy with how your information has been handled, you can complain to the Information Commissioner's Office (ico.org.uk).</span><span class="cy">Os ydych yn anhapus â'r ffordd y deliwyd â'ch gwybodaeth, gallwch gwyno i Swyddfa'r Comisiynydd Gwybodaeth (ico.org.uk).</span></p>
+  </div>
+</div>
+
+<div class="page wrap inner" id="page-contact">
+  <div class="crumb"><a href="#home"><span class="en">Home</span><span class="cy">Hafan</span></a> › <span class="en">Contact</span><span class="cy">Cysylltu</span></div>
+  <h2 class="title"><span class="en">Contact us</span><span class="cy">Cysylltu â ni</span></h2>
+  <p><span class="en">To list an event, book the hall or ask a question, please contact us.</span><span class="cy">I restru digwyddiad, archebu'r neuadd neu ofyn cwestiwn, cysylltwch â ni.</span></p>
+  <table class="table">
+    <tr><th><span class="en">Telephone</span><span class="cy">Ffôn</span></th><td>[phone number]</td></tr>
+    <tr><th><span class="en">Email</span><span class="cy">E-bost</span></th><td>[email address]</td></tr>
+    <tr><th><span class="en">Address</span><span class="cy">Cyfeiriad</span></th><td>[Community Centre], Llansannan, Denbigh LL16</td></tr>
+  </table>
+  <a class="btn btn-primary btn-block" href="tel:00000000000"><span class="en">Telephone us</span><span class="cy">Ffoniwch ni</span></a>
+  <a class="btn btn-outline btn-block" href="mailto:example@example.com"><span class="en">Email us</span><span class="cy">E-bostiwch ni</span></a>
+</div>
+</main>
+
+
+
+<footer>
+  <div class="foot-cols">
+    <div><h3>Llansannan</h3><p><span class="en">A community website for Llansannan, Bylchau and Bro Aled, supported by Llansannan Community Council and run by councillors and local volunteers. Event listings come from the community and aren't official council notices.</span><span class="cy">Gwefan gymunedol i Lansannan, Bylchau a Bro Aled, a gefnogir gan Gyngor Cymuned Llansannan ac a redir gan gynghorwyr a gwirfoddolwyr lleol. Daw'r digwyddiadau gan y gymuned ac nid ydynt yn hysbysiadau swyddogol gan y cyngor.</span></p></div>
+    <div><h3><span class="en">The village</span><span class="cy">Y pentref</span></h3><ul>
+      <li><a href="#events"><span class="en">What's on</span><span class="cy">Beth sydd ymlaen</span></a></li>
+      <li><a href="#groups"><span class="en">Clubs &amp; groups</span><span class="cy">Clybiau a grwpiau</span></a></li>
+      <li><a href="#history"><span class="en">History</span><span class="cy">Hanes</span></a></li>
+      <li><a href="#hall"><span class="en">Village Hall</span><span class="cy">Neuadd y Pentref</span></a></li>
+      <li><a href="#services"><span class="en">Local services</span><span class="cy">Gwasanaethau lleol</span></a></li>
+      <li><a href="#news"><span class="en">Village news</span><span class="cy">Newyddion y pentref</span></a></li>
+      <li><a href="https://www.facebook.com/groups/" target="_blank" rel="noopener"><span class="en">Facebook group</span><span class="cy">Grŵp Facebook</span></a></li></ul></div>
+    <div><h3><span class="en">Contact</span><span class="cy">Cysylltu</span></h3><p>[phone number]<br>[email address]</p></div>
+  </div>
+  <div class="foot-base">© 2026 Llansannan · <a href="/admin/"><span class="en">Moderators</span><span class="cy">Cymedrolwyr</span></a> · <a href="#privacy"><span class="en">Privacy</span><span class="cy">Preifatrwydd</span></a></div>
+</footer>
+
+<script src="/js/site.js" defer></script>
+</body>
+</html>

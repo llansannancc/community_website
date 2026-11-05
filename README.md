@@ -1,0 +1,62 @@
+# Llansannan Community website
+
+The community website for Llansannan, Bylchau and Bro Aled: what's on, village news, local services and history, in Welsh and English.
+
+Anyone can **submit an event**. Volunteer **moderators** approve it before it appears. Everything is hosted on Cloudflare, with the database kept in the EU.
+
+To set it up for the first time, see **[SETUP.md](SETUP.md)**.
+
+## How moderation works
+
+| | Public | Moderator | Lead moderator |
+|---|:-:|:-:|:-:|
+| Submit an event | ✓ | ✓ | ✓ |
+| Approve or reject items waiting for approval | | ✓ | ✓ |
+| Add events and news | | ✓ (needs a second approval) | ✓ (goes live straight away) |
+| Edit items | | ✓ (a live item comes off the site until someone else re-approves it) | ✓ |
+| Take down live items, restore rejected ones, delete | | | ✓ |
+| Appoint and remove moderators | | | ✓ |
+| Read the activity log | | | ✓ |
+
+- **Second approval:** a moderator can never approve something they added or changed themselves. A different moderator or a lead has to approve it.
+- **Activity log:** every action is recorded: who did it, what they did, when, and what changed. The database itself blocks the log from being edited or deleted.
+- **Emails:** all moderators are emailed when something new needs approving.
+- **Privacy:** submitters' contact details are only visible to moderators. They're deleted automatically 30 days after the event, and the log records each clean-up.
+- **At least one lead:** the site won't let the last lead moderator be removed or demoted.
+
+Moderators sign in at **/admin** with a code emailed to them. There are no passwords.
+
+## Where things are
+
+| File | What it is |
+|---|---|
+| `public/index.html` | The website: layout, text and styles |
+| `public/js/site.js` | Loads events and news; **weekly activities are listed at the top** |
+| `public/admin/` | The moderator area |
+| `src/index.js` | The server: every rule above lives here |
+| `src/auth.js` | Checks that someone signing in is a real moderator |
+| `src/email.js` | Notification emails |
+| `migrations/` | Database tables |
+| `wrangler.jsonc` | Cloudflare settings |
+
+## Common changes
+
+- **Text on the pages** (history, local services, the hall and so on): edit `public/index.html`. Each piece of text has an English and a Welsh version side by side: `<span class="en">…</span><span class="cy">…</span>`.
+- **Weekly activities:** edit the `regular` list at the top of `public/js/site.js`.
+- **Events and news:** don't edit files. Use the moderator area.
+
+Push the changes to GitHub. If automatic builds are connected, the site updates within a minute; otherwise run `npm run deploy`.
+
+## Testing on your own computer
+
+```bash
+npm install
+npm run db:local   # creates a local test database with sample data
+npm run dev        # open http://localhost:8787
+```
+
+Locally you're signed in automatically as a lead. To see the site as a regular moderator, open `http://localhost:8787/admin/?as=mod1@example.com`. That shortcut only works on your computer, never on the live site.
+
+## Cost
+
+Everything runs on Cloudflare's free plans: Workers, D1 database, Turnstile, Access for up to 50 users, and email to verified addresses. The only cost is the domain name.

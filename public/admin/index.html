@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Moderator area · Llansannan Community</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Mulish:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --blue: #3466b0; --blue-dark: #24508f; --blue-soft: #edf3fc; --accent: #9cbcf0;
+    --ink: #1c2329; --muted: #55606b; --line: #dde3e8; --bg: #f6f9fe;
+    --ok: #1f7a46; --ok-soft: #e6f4ec; --warn: #8a5a00; --warn-soft: #fff4dc; --bad: #a12020; --bad-soft: #fbeaea;
+    --head: 'Cormorant Garamond', Georgia, serif; --body: 'Mulish', 'Segoe UI', Arial, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 17px; }
+  body { font-family: var(--body); color: var(--ink); background: var(--bg); line-height: 1.5; }
+  h1, h2, h3 { font-family: var(--head); color: var(--blue-dark); line-height: 1.2; }
+  a { color: var(--blue); }
+  :focus-visible { outline: 3px solid var(--blue-dark); outline-offset: 2px; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
+
+  header { background: var(--blue-dark); color: #fff; }
+  header .wrap { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding-top: 12px; padding-bottom: 12px; }
+  header h1 { color: #fff; font-size: 1.6rem; }
+  header h1 small { display: block; font-family: var(--body); font-size: 0.8rem; font-weight: 500; opacity: 0.85; }
+  .who { font-size: 0.9rem; text-align: right; }
+  .who a { color: #fff; }
+  .role-badge { display: inline-block; background: var(--accent); color: var(--blue-dark); font-weight: 700; font-size: 0.75rem; padding: 1px 8px; border-radius: 10px; margin-left: 4px; }
+
+  nav.tabs { background: #fff; border-bottom: 3px solid var(--accent); position: sticky; top: 0; z-index: 5; }
+  nav.tabs .wrap { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+  nav.tabs a { flex-shrink: 0; padding: 13px 14px; text-decoration: none; color: var(--ink); font-weight: 600; border-bottom: 3px solid transparent; margin-bottom: -3px; }
+  nav.tabs a.on { color: var(--blue); border-bottom-color: var(--blue); }
+  .count { display: inline-block; min-width: 22px; text-align: center; background: var(--blue); color: #fff; border-radius: 11px; font-size: 0.75rem; padding: 1px 6px; margin-left: 4px; }
+  .count:empty { display: none; }
+
+  main.wrap { padding-top: 26px; padding-bottom: 60px; }
+  .view { display: none; }
+  .view.show { display: block; }
+  h2.title { font-size: 1.9rem; margin-bottom: 6px; }
+  .lead-in { color: var(--muted); margin-bottom: 18px; }
+  h3.group { font-size: 1.35rem; margin: 22px 0 10px; }
+
+  .card { background: #fff; border: 1px solid var(--line); border-left: 5px solid var(--line); border-radius: 6px; padding: 16px 18px; margin-bottom: 12px; }
+  .card.pending { border-left-color: var(--warn); }
+  .card.approved { border-left-color: var(--ok); }
+  .card.rejected { border-left-color: var(--bad); }
+  .card-top { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: flex-start; }
+  .card h4 { font-size: 1.1rem; }
+  .card .when { color: var(--blue-dark); font-weight: 700; }
+  .card .meta { color: var(--muted); font-size: 0.9rem; margin-top: 4px; }
+  .card .desc { margin-top: 8px; white-space: pre-line; }
+  .card .contact { margin-top: 10px; background: var(--blue-soft); border-radius: 4px; padding: 8px 12px; font-size: 0.92rem; }
+  .pill { display: inline-block; font-size: 0.75rem; font-weight: 700; padding: 2px 9px; border-radius: 10px; }
+  .pill.pending { background: var(--warn-soft); color: var(--warn); }
+  .pill.approved { background: var(--ok-soft); color: var(--ok); }
+  .pill.rejected { background: var(--bad-soft); color: var(--bad); }
+  .note { margin-top: 10px; font-size: 0.9rem; padding: 8px 12px; border-radius: 4px; background: var(--warn-soft); color: var(--warn); }
+  .note.info { background: var(--blue-soft); color: var(--blue-dark); }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; align-items: center; }
+  .btn { font: inherit; font-weight: 700; font-size: 0.92rem; min-height: 42px; padding: 0 16px; border-radius: 4px; border: 2px solid var(--blue); background: #fff; color: var(--blue); cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; }
+  .btn:hover { background: var(--blue-soft); }
+  .btn.primary { background: var(--blue); color: #fff; }
+  .btn.primary:hover { background: var(--blue-dark); border-color: var(--blue-dark); }
+  .btn.ok { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .btn.danger { border-color: var(--bad); color: var(--bad); }
+  .btn.danger.armed { background: var(--bad); color: #fff; }
+  .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+  .reject-box { margin-top: 10px; display: none; gap: 8px; flex-direction: column; }
+  .reject-box.show { display: flex; }
+
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
+  .filters button { font: inherit; font-weight: 600; font-size: 0.88rem; padding: 6px 12px; border-radius: 16px; border: 1px solid var(--line); background: #fff; cursor: pointer; }
+  .filters button.on { background: var(--blue); border-color: var(--blue); color: #fff; }
+  .filters select, .filters input { font: inherit; padding: 7px 10px; border: 1px solid #b9c3cd; border-radius: 4px; min-height: 40px; }
+
+  form.edit { background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 20px; max-width: 760px; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-weight: 700; margin-bottom: 4px; }
+  .field .hint { font-weight: 400; color: var(--muted); font-size: 0.85rem; }
+  .field input, .field textarea, .field select { width: 100%; font: inherit; padding: 10px 12px; border: 1px solid #b9c3cd; border-radius: 4px; min-height: 46px; background: #fff; }
+  .field textarea { min-height: 110px; resize: vertical; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .three { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 12px; }
+  .msg { margin-top: 10px; font-weight: 700; }
+  .msg.bad { color: var(--bad); } .msg.ok { color: var(--ok); }
+  details.welsh { margin: 4px 0 14px; } details.welsh summary { cursor: pointer; font-weight: 700; color: var(--blue); margin-bottom: 10px; }
+
+  table.list { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  table.list th, table.list td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; font-size: 0.95rem; }
+  table.list th { background: var(--blue-soft); color: var(--blue-dark); }
+  .log-time { white-space: nowrap; color: var(--muted); font-size: 0.85rem; }
+  .log-action { font-weight: 700; }
+  details.changes summary { cursor: pointer; color: var(--blue); font-size: 0.85rem; }
+  details.changes pre { white-space: pre-wrap; font-size: 0.8rem; background: var(--bg); padding: 8px; border-radius: 4px; margin-top: 4px; }
+
+  .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 12px 18px; border-radius: 6px; font-weight: 600; opacity: 0; transition: opacity 0.2s; pointer-events: none; max-width: 90vw; }
+  .toast.show { opacity: 1; }
+  .empty { color: var(--muted); padding: 14px 0; }
+  .denied { background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 28px; max-width: 620px; }
+
+  @media (max-width: 700px) {
+    .two, .three { grid-template-columns: 1fr; }
+    .who { text-align: left; }
+    table.list.resp thead { display: none; }
+    table.list.resp tr { display: block; border-bottom: 1px solid var(--line); padding: 8px 0; }
+    table.list.resp td { display: block; border: none; padding: 4px 12px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>Llansannan Community<small>Moderator area</small></h1>
+    <div class="who" id="who">Checking who you are…</div>
+  </div>
+</header>
+
+<nav class="tabs" id="tabs" hidden>
+  <div class="wrap">
+    <a href="#queue" data-v="queue">To approve <span class="count" id="c-queue"></span></a>
+    <a href="#events" data-v="events">Events</a>
+    <a href="#news" data-v="news">News</a>
+    <a href="#add-event" data-v="add-event">+ Add event</a>
+    <a href="#add-news" data-v="add-news">+ Add news</a>
+    <a href="#moderators" data-v="moderators" class="lead-only" hidden>Moderators</a>
+    <a href="#activity" data-v="activity" class="lead-only" hidden>Activity log</a>
+  </div>
+</nav>
+
+<main class="wrap">
+  <div id="denied" class="denied" hidden>
+    <h2 class="title">You're not a moderator</h2>
+    <p class="lead-in">You've signed in, but this email address isn't on the list of moderators. If you think it should be, ask one of the lead moderators to add you.</p>
+    <a class="btn" href="/">Back to the website</a>
+  </div>
+
+  <section class="view" id="v-queue">
+    <h2 class="title">Waiting for approval</h2>
+    <p class="lead-in">Check each item, then approve it to put it on the website. Items you added or changed yourself need a different moderator to approve them.</p>
+    <h3 class="group">Events</h3><div id="q-events"></div>
+    <h3 class="group">News</h3><div id="q-news"></div>
+  </section>
+
+  <section class="view" id="v-events">
+    <h2 class="title">Events</h2>
+    <div class="filters" data-for="events">
+      <button data-s="approved" class="on">Live</button><button data-s="pending">Waiting</button><button data-s="rejected">Rejected</button><button data-s="all">All</button>
+    </div>
+    <div id="l-events"></div>
+  </section>
+
+  <section class="view" id="v-news">
+    <h2 class="title">News</h2>
+    <div class="filters" data-for="news">
+      <button data-s="approved" class="on">Live</button><button data-s="pending">Waiting</button><button data-s="rejected">Rejected</button><button data-s="all">All</button>
+    </div>
+    <div id="l-news"></div>
+  </section>
+
+  <section class="view" id="v-add-event">
+    <h2 class="title" id="ev-form-title">Add an event</h2>
+    <p class="lead-in" id="ev-form-intro"></p>
+    <form class="edit" id="ev-form">
+      <input type="hidden" name="id">
+      <div class="field"><label>Event name</label><input name="title_en" required maxlength="120"></div>
+      <div class="three">
+        <div class="field"><label>Date</label><input name="date" type="date" required></div>
+        <div class="field"><label>Starts</label><input name="start" type="time" required></div>
+        <div class="field"><label>Ends</label><input name="end" type="time"></div>
+      </div>
+      <div class="field"><label>Where</label><input name="location_en" required maxlength="120"></div>
+      <div class="field"><label>Description</label><textarea name="description_en" maxlength="2000"></textarea></div>
+      <div class="field"><label>Organised by <span class="hint">shown on the website</span></label><input name="organiser" maxlength="120"></div>
+      <details class="welsh"><summary>Welsh version (optional)</summary>
+        <div class="field"><label>Enw'r digwyddiad</label><input name="title_cy" maxlength="120"></div>
+        <div class="field"><label>Lle</label><input name="location_cy" maxlength="120"></div>
+        <div class="field"><label>Disgrifiad</label><textarea name="description_cy" maxlength="2000"></textarea></div>
+      </details>
+      <details class="welsh" id="ev-contact"><summary>Contact details (private: moderators only)</summary>
+        <div class="two">
+          <div class="field"><label>Contact name</label><input name="contact_name" maxlength="120"></div>
+          <div class="field"><label>Contact email</label><input name="contact_email" type="email" maxlength="200"></div>
+        </div>
+        <div class="field"><label>Contact phone</label><input name="contact_phone" maxlength="40"></div>
+      </details>
+      <div class="actions"><button class="btn primary" type="submit" id="ev-save">Save</button><a class="btn" href="#events">Cancel</a></div>
+      <p class="msg" id="ev-msg" role="status"></p>
+    </form>
+  </section>
+
+  <section class="view" id="v-add-news">
+    <h2 class="title" id="nw-form-title">Add a news post</h2>
+    <p class="lead-in" id="nw-form-intro"></p>
+    <form class="edit" id="nw-form">
+      <input type="hidden" name="id">
+      <div class="field"><label>Headline</label><input name="title_en" required maxlength="140"></div>
+      <div class="field"><label>Summary <span class="hint">one or two sentences shown on the homepage</span></label><textarea name="summary_en" required maxlength="300" style="min-height:70px"></textarea></div>
+      <div class="field"><label>Full story <span class="hint">optional, shown when people tap "Read more"</span></label><textarea name="body_en" maxlength="5000"></textarea></div>
+      <div class="field"><label>Category</label><input name="category_en" maxlength="40" placeholder="Community" list="cats"></div>
+      <datalist id="cats"><option>Community</option><option>Roads</option><option>Volunteering</option><option>Thank you</option><option>Clubs</option><option>School</option><option>Weather</option></datalist>
+      <details class="welsh"><summary>Welsh version (optional)</summary>
+        <div class="field"><label>Pennawd</label><input name="title_cy" maxlength="140"></div>
+        <div class="field"><label>Crynodeb</label><textarea name="summary_cy" maxlength="300" style="min-height:70px"></textarea></div>
+        <div class="field"><label>Y stori lawn</label><textarea name="body_cy" maxlength="5000"></textarea></div>
+        <div class="field"><label>Categori</label><input name="category_cy" maxlength="40" placeholder="Cymuned"></div>
+      </details>
+      <div class="actions"><button class="btn primary" type="submit" id="nw-save">Save</button><a class="btn" href="#news">Cancel</a></div>
+      <p class="msg" id="nw-msg" role="status"></p>
+    </form>
+  </section>
+
+  <section class="view" id="v-moderators">
+    <h2 class="title">Moderators</h2>
+    <p class="lead-in">Lead moderators can appoint and remove moderators. New moderators sign in at this page with their email address (they'll be sent a one-time code).</p>
+    <form class="edit" id="mod-form" style="margin-bottom:20px">
+      <h3 style="font-size:1.3rem;margin-bottom:10px">Appoint a moderator</h3>
+      <div class="two">
+        <div class="field"><label>Name</label><input name="name" required maxlength="80"></div>
+        <div class="field"><label>Email</label><input name="email" type="email" required maxlength="200"></div>
+      </div>
+      <div class="field"><label>Role</label><select name="role"><option value="moderator">Moderator: approves items; own items need a second approval</option><option value="lead">Lead moderator: everything, own items go live straight away</option></select></div>
+      <div class="actions"><button class="btn primary" type="submit">Appoint</button></div>
+      <p class="msg" id="mod-msg" role="status"></p>
+    </form>
+    <div id="mod-list"></div>
+  </section>
+
+  <section class="view" id="v-activity">
+    <h2 class="title">Activity log</h2>
+    <p class="lead-in">A permanent record of everything done on the website. It can't be edited or deleted. Only lead moderators can see it.</p>
+    <div class="filters">
+      <select id="log-actor"><option value="">Everyone</option></select>
+      <select id="log-type"><option value="">All types</option><option value="event">Events</option><option value="news">News</option><option value="moderator">Moderators</option><option value="system">System</option></select>
+      <input id="log-q" type="search" placeholder="Search…">
+    </div>
+    <div id="log-list"></div>
+    <div class="actions"><button class="btn" id="log-more" hidden>Load older entries</button></div>
+  </section>
+</main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script src="/admin/admin.js" defer></script>
+</body>
+</html>
