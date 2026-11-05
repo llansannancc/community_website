@@ -25,7 +25,7 @@
     {
       "binding": "DB",
       "database_name": "llansannan",
-      "database_id": "CHANGE_ME",
+      "database_id": "02d94d4b-b856-4c6c-b10b-d5505d6b6974",
       "migrations_dir": "migrations"
     }
   ],
