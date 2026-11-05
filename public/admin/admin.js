@@ -242,13 +242,13 @@ $("mod-form").addEventListener("submit", async (e) => {
   try {
     await post("/moderators", d);
     e.target.reset(); msg.className = "msg ok";
-    msg.textContent = `${d.name} has been appointed. They can now sign in here with ${d.email}.`;
+    msg.textContent = `${d.name} has been appointed. Ask them to go to ${location.origin}/admin/ and click "Sign in with GitHub", using the GitHub account with ${d.email}.`;
     loadModerators();
   } catch (err) { msg.className = "msg bad"; msg.textContent = err.message; }
 });
 
 // ---------- activity log (leads) ----------
-const ACTION_LABEL = { submitted: "Submitted", created: "Added", edited: "Edited", approved: "Approved", rejected: "Rejected", withdrawn: "Withdrew",
+const ACTION_LABEL = { signed_in: "Signed in", sign_in_refused: "Sign-in refused", submitted: "Submitted", created: "Added", edited: "Edited", approved: "Approved", rejected: "Rejected", withdrawn: "Withdrew",
   taken_down: "Took down", restored: "Restored", deleted: "Deleted", moderator_added: "Appointed", moderator_changed: "Changed moderator",
   moderator_removed: "Removed moderator", privacy_cleanup: "Privacy clean-up" };
 let logOldest = null;
@@ -295,16 +295,36 @@ async function route() {
 }
 window.addEventListener("hashchange", route);
 
+const SIGNIN_ERRORS = {
+  "not-moderator": "That GitHub account isn't on the moderator list. Make sure you're using the GitHub account with the email address the lead moderators added you with, or ask a lead to add you.",
+  "no-email": "Your GitHub account doesn't have a verified email address. Verify your email on GitHub, then try again.",
+  "cancelled": "Sign-in was cancelled.",
+  "expired": "That sign-in took too long or was interrupted. Please try again.",
+  "github": "GitHub didn't respond properly. Please try again in a minute.",
+  "not-set-up": "GitHub sign-in hasn't been set up yet. See SETUP.md.",
+};
+function showSignIn() {
+  $("who").innerHTML = `<a href="/">Back to the website</a>`;
+  $("signin").hidden = false;
+  const err = new URLSearchParams(location.search).get("error");
+  if (err) { $("signin-error").textContent = SIGNIN_ERRORS[err] || "Sign-in didn't work. Please try again."; $("signin-error").hidden = false; }
+}
+
+async function signOut() {
+  await fetch("/api/auth/logout", { method: "POST" });
+  location.replace("/admin/");
+}
+
 (async function start() {
   try {
     ({ me } = await api("/me"));
   } catch (e) {
-    $("who").innerHTML = `<a href="/">Back to the website</a>`;
-    $("denied").hidden = false;
-    return;
+    return showSignIn();
   }
+  if (location.search) history.replaceState(null, "", "/admin/" + location.hash);
   $("who").innerHTML = `Signed in as <strong>${esc(me.name)}</strong><span class="role-badge">${me.role === "lead" ? "Lead" : "Moderator"}</span><br>
-    <a href="/">View website</a> · <a href="/cdn-cgi/access/logout">Sign out</a>`;
+    <a href="/">View website</a> · <a href="#" id="sign-out">Sign out</a>`;
+  $("sign-out").onclick = (ev) => { ev.preventDefault(); signOut(); };
   $("tabs").hidden = false;
   if (me.role === "lead") document.querySelectorAll(".lead-only").forEach((x) => (x.hidden = false));
   route();

@@ -100,6 +100,8 @@
   .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 12px 18px; border-radius: 6px; font-weight: 600; opacity: 0; transition: opacity 0.2s; pointer-events: none; max-width: 90vw; }
   .toast.show { opacity: 1; }
   .empty { color: var(--muted); padding: 14px 0; }
+  .hint { color: var(--muted); font-size: 0.85rem; }
+  .gh-btn { gap: 10px; font-size: 1rem; min-height: 50px; }
   .denied { background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 28px; max-width: 620px; }
 
   @media (max-width: 700px) {
@@ -132,10 +134,15 @@
 </nav>
 
 <main class="wrap">
-  <div id="denied" class="denied" hidden>
-    <h2 class="title">You're not a moderator</h2>
-    <p class="lead-in">You've signed in, but this email address isn't on the list of moderators. If you think it should be, ask one of the lead moderators to add you.</p>
-    <a class="btn" href="/">Back to the website</a>
+  <div id="signin" class="denied" hidden>
+    <h2 class="title">Moderator sign-in</h2>
+    <p class="lead-in" id="signin-error" hidden style="color:var(--bad);font-weight:700"></p>
+    <p class="lead-in">Moderators sign in with their GitHub account. Use the GitHub account that has the email address the lead moderators added you with.</p>
+    <a class="btn primary gh-btn" href="/api/auth/github">
+      <svg viewBox="0 0 16 16" width="20" height="20" aria-hidden="true" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      Sign in with GitHub</a>
+    <p class="hint" style="margin-top:14px">No GitHub account? You can create one for free during sign-in. Use the same email address the leads have for you.</p>
+    <div class="actions"><a class="btn" href="/">Back to the website</a></div>
   </div>
 
   <section class="view" id="v-queue">
@@ -215,12 +222,12 @@
 
   <section class="view" id="v-moderators">
     <h2 class="title">Moderators</h2>
-    <p class="lead-in">Lead moderators can appoint and remove moderators. New moderators sign in at this page with their email address (they'll be sent a one-time code).</p>
+    <p class="lead-in">Lead moderators can appoint and remove moderators. Appoint people using the email address on their GitHub account. They then sign in at this page with <strong>Sign in with GitHub</strong>.</p>
     <form class="edit" id="mod-form" style="margin-bottom:20px">
       <h3 style="font-size:1.3rem;margin-bottom:10px">Appoint a moderator</h3>
       <div class="two">
         <div class="field"><label>Name</label><input name="name" required maxlength="80"></div>
-        <div class="field"><label>Email</label><input name="email" type="email" required maxlength="200"></div>
+        <div class="field"><label>Email <span class="hint">the one on their GitHub account</span></label><input name="email" type="email" required maxlength="200"></div>
       </div>
       <div class="field"><label>Role</label><select name="role"><option value="moderator">Moderator: approves items; own items need a second approval</option><option value="lead">Lead moderator: everything, own items go live straight away</option></select></div>
       <div class="actions"><button class="btn primary" type="submit">Appoint</button></div>

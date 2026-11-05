@@ -1,100 +1,75 @@
 # Setting up the Llansannan Community website
 
-The site runs on the **council's Cloudflare account**, as a separate project from the council website. It goes live in two stages:
+The site runs on the **council's Cloudflare account**, as a separate project from the council website. Everything here is done in the browser, with no card details needed. Moderators sign in with their GitHub accounts.
 
-- **Stage 1: now.** The site runs on a free temporary address (`…workers.dev`) and is **private**: only people you list can open it. Councillors and moderators can try everything with real events before the public sees it.
-- **Stage 2: when the domain is confirmed.** Move it to the domain, open it to the public, and switch on email notifications and the spam check.
-
-You need: access to the **council's Cloudflare account**, the **Llansannan GitHub account**, and **Node.js 20 or newer** on your computer.
+- **Stage 1: now.** The site runs on its free address, `https://llansannan-community.llansannancc.workers.dev`. Search engines are told not to list it, so councillors can test it quietly.
+- **Stage 2: when the domain is confirmed.** Move it to the domain, and switch on email notifications and the spam check.
 
 ---
 
-# Stage 1: private test site
+# Stage 1
 
-## 1. Put the code on GitHub
+## 1. Database ✅ (done)
 
-Create a new **private** repository on the Llansannan GitHub account, for example `community-website`, with no README. Then, in this folder:
+The D1 database `llansannan` has been created in the EU, and its ID is in `wrangler.jsonc`.
 
-```bash
-git init
-git add .
-git commit -m "Llansannan Community website"
-git branch -M main
-git remote add origin https://github.com/<llansannan-account>/community-website.git
-git push -u origin main
+## 2. Connect the GitHub repo ✅ (done)
+
+**Workers & Pages → Create → Import a repository → llansannancc/community_website**, with:
+
+- Project name: `llansannan-community`
+- Deploy command: `npx wrangler d1 migrations apply llansannan --remote && npx wrangler deploy`
+
+Every push to GitHub now updates the site, and any new database changes are applied automatically.
+
+If a build ever fails with a **permissions error** on the first command, run each file in the `migrations` folder by hand in **D1 → llansannan → Console**, in order, and change the deploy command to `npx wrangler deploy`.
+
+## 3. Create the GitHub sign-in app
+
+Moderators sign in with their GitHub account. GitHub needs to know about the website first.
+
+1. Sign in to GitHub as the account or organisation that should own the sign-in, for example **llansannancc**.
+   - For a personal account: **Settings → Developer settings → OAuth Apps → New OAuth App**.
+   - For an organisation: **the organisation's Settings → Developer settings → OAuth Apps → New OAuth App**.
+2. Fill in:
+   - **Application name:** `Llansannan Community moderators`
+   - **Homepage URL:** `https://llansannan-community.llansannancc.workers.dev`
+   - **Authorization callback URL:** `https://llansannan-community.llansannancc.workers.dev/api/auth/github/callback`
+3. Click **Register application**.
+4. Copy the **Client ID** into `wrangler.jsonc` as `GITHUB_CLIENT_ID`, and commit. It isn't secret.
+5. Click **Generate a new client secret** and copy it. GitHub only shows it once.
+6. In Cloudflare: **Workers & Pages → llansannan-community → Settings → Variables and Secrets → Add**. Choose type **Secret**, name it `GITHUB_CLIENT_SECRET`, paste the secret as the value, and click **Deploy**.
+
+## 4. Add the first lead moderator
+
+**Storage & databases → D1 → llansannan → Console**, then run, using the email address on your GitHub account:
+
+```sql
+INSERT INTO moderators (email, name, role) VALUES ('your@email', 'Your Name', 'lead');
 ```
 
-## 2. Install and sign in to the council's Cloudflare account
+Then go to `https://llansannan-community.llansannancc.workers.dev/admin/` and click **Sign in with GitHub**.
 
-```bash
-npm install
-npx wrangler login
-```
+## 5. Appoint the other moderators
 
-A browser window opens. Sign in to the **council's** Cloudflare account and click **Allow**.
+**Moderators → Appoint a moderator**, using **the email address on their GitHub account**. Tell them to go to `/admin/` and click **Sign in with GitHub**. Anyone without a GitHub account can create one for free while signing in.
 
-## 3. Create the database (kept in the EU)
+- They stay signed in on that device for 30 days, then click the button again.
+- Removing someone from the list signs them out everywhere straight away.
+- Appoint the second lead with the role **Lead moderator**.
+- Every sign-in, including refused attempts by people not on the list, is recorded in the **Activity log**.
 
-```bash
-npx wrangler d1 create llansannan --jurisdiction eu
-```
+## 6. Nothing else to manage
 
-Copy the `database_id` it prints into `wrangler.jsonc`, replacing `CHANGE_ME` in the top `d1_databases` section. Don't leave out `--jurisdiction eu`: it can't be added later.
-
-Then create the tables:
-
-```bash
-npm run db:remote
-```
-
-## 4. Add the two lead moderators
-
-Replace the names and emails, then run:
-
-```bash
-npx wrangler d1 execute llansannan --remote --command "INSERT INTO moderators (email, name, role) VALUES ('first.lead@example.com', 'First Lead', 'lead'), ('second.lead@example.com', 'Second Lead', 'lead')"
-```
-
-From then on, the leads appoint everyone else from the **Moderators** screen on the site.
-
-## 5. Publish
-
-```bash
-npm run deploy
-```
-
-It prints the site's address, something like `https://llansannan-community.<name>.workers.dev`. Put that address into `wrangler.jsonc` as `SITE_URL`.
-
-## 6. Make it private (Cloudflare Access)
-
-1. Cloudflare dashboard → **Workers & Pages** → `llansannan-community` → **Settings** → **Domains & Routes**.
-2. Next to **workers.dev**, click **Enable Cloudflare Access**. If you're asked to set up Zero Trust first, pick a team name (for example `llansannan`) and the **Free** plan.
-3. The box that appears shows two values. Copy them into `wrangler.jsonc`:
-   - the **AUD tag** → `ACCESS_AUD`
-   - the **team domain** → `ACCESS_TEAM_DOMAIN`
-4. Click **Manage Cloudflare Access** and add the email address of everyone who should be able to see the test site: the leads, the moderators and any councillors who want a look.
-5. Publish again so the site picks up the new settings:
-
-   ```bash
-   npm run deploy
-   ```
-
-People on that list sign in with a code emailed to them. Being able to *see* the test site doesn't make someone a moderator: the **Moderators** screen still decides who can approve things.
+There are no passwords or codes to look after. If someone loses their phone, they sign in again with GitHub on the new one.
 
 ## 7. Try it out
 
-- [ ] Open the site address and sign in with the emailed code. The homepage loads.
-- [ ] Submit a test event from **Submit an event**.
-- [ ] Go to `/admin`, approve it, and check it appears on the homepage.
-- [ ] A lead appoints a moderator. The moderator signs in and has no **Moderators** or **Activity log** tabs.
-- [ ] The moderator adds an event. It waits for a *different* moderator to approve it.
+- [ ] Submit a test event from **Submit an event** on the homepage.
+- [ ] Approve it in `/admin`, and check it appears on the homepage.
+- [ ] Appoint a test moderator and open their link in a private browser window. They have no **Moderators** or **Activity log** tabs.
+- [ ] The test moderator adds an event. It waits for a *different* moderator to approve it.
 - [ ] Everything you did appears in the **Activity log**.
-
-Email notifications and the spam check are switched off in this stage, because both need the domain.
-
-### Optional: publish automatically from GitHub
-
-Cloudflare dashboard → **Workers & Pages** → `llansannan-community` → **Settings → Builds** → connect the GitHub repository, with the deploy command `npx wrangler deploy`. After that, every change pushed to GitHub goes live within a minute.
 
 ---
 
@@ -102,54 +77,35 @@ Cloudflare dashboard → **Workers & Pages** → `llansannan-community` → **Se
 
 ## 1. Register the domain
 
-In the council's Cloudflare account: **Domain Registration → Register Domains**. Registering it here also sets up its DNS.
+In the council's Cloudflare account: **Domain Registration → Register Domains**.
 
 ## 2. Point the site at it
 
-In `wrangler.jsonc`:
+In the GitHub OAuth app (step 3 of Stage 1), change the **Homepage URL** and **Authorization callback URL** to the domain: `https://<the-domain>/api/auth/github/callback`.
+
+Then
+
+Edit `wrangler.jsonc` on GitHub:
 
 - set `"workers_dev": false`
-- remove the `//` from the `routes` lines, and put the domain in `pattern`
+- remove the `//` from the `routes` lines and put the domain in `pattern`
 - set `SITE_URL` to `https://<the-domain>`
 - set `MAIL_FROM` to `notifications@<the-domain>`
 
-## 3. Protect only the moderator area
+Moderators sign in again once on the new address with **Sign in with GitHub**.
 
-The public needs to see the site now, so Access should guard only the moderator pages.
+## 3. Spam check (Turnstile)
 
-1. **Zero Trust → Access → Applications → Add an application → Self-hosted**.
-   - Name: `Llansannan moderators`
-   - Destinations: path `admin` and path `api/admin` on the domain
-   - Session duration: 1 week
-2. Policy: **Allow**, Include **Everyone**. The site itself refuses anyone who isn't on its moderator list, so the leads never need to touch Cloudflare to appoint people.
-3. Add this application's **AUD tag** to `ACCESS_AUD`, after a comma: `"old-tag, new-tag"`. Once everything works on the domain, you can remove the old one.
-
-The free plan allows up to 50 people to sign in. You can remove anyone who's no longer involved under **Zero Trust → My Team → Users**.
-
-## 4. Spam check (Turnstile)
-
-1. Dashboard → **Turnstile → Add widget**. Add the domain and choose **Managed**.
+1. **Turnstile → Add widget**. Add the domain and choose **Managed**.
 2. Put the **Site key** in `wrangler.jsonc` as `TURNSTILE_SITE_KEY`.
-3. Save the secret key:
+3. Add the **Secret key** as a secret named `TURNSTILE_SECRET` (Settings → Variables and Secrets).
 
-   ```bash
-   npx wrangler secret put TURNSTILE_SECRET
-   ```
-
-## 5. Email notifications
+## 4. Email notifications
 
 1. Domain → **Email → Email Routing**: turn it on.
 2. **Email Sending**: onboard the domain.
-3. **Email Routing → Destination addresses**: add each moderator's email. They each click a link once. On the free plan, Cloudflare only delivers to verified addresses, so do this for every new moderator.
+3. **Email Routing → Destination addresses**: add each moderator's email. They each click a link once. On the free plan, Cloudflare only delivers to verified addresses.
 4. In `wrangler.jsonc`, remove the `//` from the three `send_email` lines.
-
-## 6. Publish
-
-```bash
-npm run deploy
-```
-
-Then check that a submitted event triggers an email, and that the public can see the site without signing in, but `/admin` asks for a code.
 
 ## Before going public, fill in
 

@@ -24,7 +24,7 @@ To set it up for the first time, see **[SETUP.md](SETUP.md)**.
 - **Privacy:** submitters' contact details are only visible to moderators. They're deleted automatically 30 days after the event, and the log records each clean-up.
 - **At least one lead:** the site won't let the last lead moderator be removed or demoted.
 
-Moderators sign in at **/admin** with a code emailed to them. There are no passwords.
+Moderators sign in at **/admin** with **Sign in with GitHub**. The site checks the verified email addresses on their GitHub account against the moderator list. There are no passwords or codes to manage.
 
 ## Where things are
 
@@ -34,7 +34,7 @@ Moderators sign in at **/admin** with a code emailed to them. There are no passw
 | `public/js/site.js` | Loads events and news; **weekly activities are listed at the top** |
 | `public/admin/` | The moderator area |
 | `src/index.js` | The server: every rule above lives here |
-| `src/auth.js` | Checks that someone signing in is a real moderator |
+| `src/auth.js` | Sign in with GitHub, and sessions |
 | `src/email.js` | Notification emails |
 | `migrations/` | Database tables |
 | `wrangler.jsonc` | Cloudflare settings |
@@ -55,8 +55,8 @@ npm run db:local   # creates a local test database with sample data
 npm run dev        # open http://localhost:8787
 ```
 
-Locally you're signed in automatically as a lead. To see the site as a regular moderator, open `http://localhost:8787/admin/?as=mod1@example.com`. That shortcut only works on your computer, never on the live site.
+To act as someone from the sample data, open `http://localhost:8787/admin/?as=lead1@example.com`, or `?as=mod1@example.com` for a regular moderator. That shortcut only works on your computer, never on the live site. To try the real GitHub flow locally, run `node tests/mock-github.mjs` (a pretend GitHub) alongside `npm run dev`.
 
 ## Cost
 
-Everything runs on Cloudflare's free plans: Workers, D1 database, Turnstile, Access for up to 50 users, and email to verified addresses. The only cost is the domain name.
+Everything runs on Cloudflare's free plans: Workers, D1 database, Turnstile, and email to verified addresses. The only cost is the domain name.

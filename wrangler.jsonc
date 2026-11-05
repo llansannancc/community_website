@@ -12,8 +12,7 @@
     "binding": "ASSETS"
   },
 
-  // STAGE 1 (now): the free address https://llansannan-community.<your-subdomain>.workers.dev
-  // kept private with Cloudflare Access while councillors test it.
+  // STAGE 1 (now): the free address https://llansannan-community.llansannancc.workers.dev
   // STAGE 2 (when the domain is confirmed): set workers_dev to false and un-comment "routes" (see SETUP.md).
   "workers_dev": true,
   // "routes": [
@@ -41,21 +40,21 @@
 
   "vars": {
     "ENVIRONMENT": "production",
-    "SITE_URL": "https://llansannan-community.CHANGE_ME.workers.dev",
+    "SITE_URL": "https://llansannan-community.llansannancc.workers.dev",
     "MAIL_FROM": "notifications@CHANGE_ME.example",
-    // Shown when you turn on Cloudflare Access (see SETUP.md), e.g. llansannan.cloudflareaccess.com (no https://)
-    "ACCESS_TEAM_DOMAIN": "CHANGE_ME.cloudflareaccess.com",
-    // The "AUD tag" shown when you turn on Cloudflare Access
-    "ACCESS_AUD": "CHANGE_ME",
-    // STAGE 2: the Turnstile "site key" (spam check). Not needed while the whole site is private.
-    "TURNSTILE_SITE_KEY": ""
-    // TURNSTILE_SECRET is a secret: npx wrangler secret put TURNSTILE_SECRET
+    // The Turnstile "site key" (spam check on the public form). Can be added any time; see SETUP.md.
+    "TURNSTILE_SITE_KEY": "",
+    // Moderator sign-in: the "Client ID" of the GitHub OAuth app (see SETUP.md). Not secret.
+    "GITHUB_CLIENT_ID": "CHANGE_ME"
+    // Secrets are added in the dashboard (Settings > Variables and Secrets > Add > type "Secret"), never here:
+    //   GITHUB_CLIENT_SECRET  from the GitHub OAuth app (see SETUP.md)
+    //   TURNSTILE_SECRET      spam check, Stage 2
   },
 
   "observability": { "enabled": true },
 
   // Local testing on your own computer: npm run db:local, then npm run dev
-  // You're signed in automatically as DEV_USER_EMAIL (a lead from seed/dev-seed.sql).
+  // Open /admin/?as=lead1@example.com to act as anyone from seed/dev-seed.sql.
   "env": {
     "dev": {
       "d1_databases": [
@@ -63,7 +62,11 @@
       ],
       "vars": {
         "ENVIRONMENT": "development",
-        "DEV_USER_EMAIL": "lead1@example.com",
+        // A pretend GitHub for automated tests (tests/mock-github.mjs)
+        "GITHUB_CLIENT_ID": "test-client",
+        "GITHUB_CLIENT_SECRET": "test-secret",
+        "GITHUB_WEB_URL": "http://127.0.0.1:8788",
+        "GITHUB_API_URL": "http://127.0.0.1:8788",
         "SITE_URL": "http://localhost:8787",
         "TURNSTILE_SITE_KEY": ""
       }

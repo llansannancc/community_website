@@ -9,7 +9,7 @@
 //  - Only leads can manage moderators, delete items, take down live items and read the activity log.
 //  - Every action is written to the activity log, which can't be edited or deleted.
 
-import { currentModerator } from "./auth.js";
+import { currentModerator, startGithubSignIn, finishGithubSignIn, clearStateCookie, clearSessionCookie, endSession, endAllSessions } from "./auth.js";
 import { notifyModerators } from "./email.js";
 
 // ---------- small helpers ----------
@@ -324,7 +324,7 @@ async function addModerator(env, me, b) {
     id = r.meta.last_row_id;
   }
   await log(env, me, "moderator_added", "moderator", id, `Appointed ${name} <${email}> as ${role === "lead" ? "a lead moderator" : "a moderator"}`);
-  return { id };
+  return { id, name };
 }
 
 async function updateModerator(env, me, id, b) {
@@ -339,6 +339,7 @@ async function updateModerator(env, me, id, b) {
   if (losingLead && (await activeLeads(env, m.id)) < 1) httpError(409, "There must always be at least one lead moderator.");
 
   await env.DB.prepare("UPDATE moderators SET name = ?, role = ?, active = ? WHERE id = ?").bind(next.name, next.role, next.active, id).run();
+  if (!next.active) await endAllSessions(env, id);
   const parts = [];
   if (next.name !== m.name) parts.push(`renamed from "${m.name}" to "${next.name}"`);
   if (next.role !== m.role) parts.push(`role changed from ${m.role} to ${next.role}`);
@@ -411,6 +412,39 @@ async function handleAdmin(request, env, url, me) {
   return fail(404, "Not found.");
 }
 
+// ---------- signing in and out (GitHub) ----------
+async function handleAuth(request, env, url) {
+  const path = url.pathname.replace(/^\/api\/auth/, "");
+  const origin = url.origin;
+
+  if (path === "/github" && request.method === "GET") return startGithubSignIn(request, env);
+
+  if (path === "/github/callback" && request.method === "GET") {
+    const out = await finishGithubSignIn(request, env);
+    const headers = new Headers();
+    headers.append("Set-Cookie", clearStateCookie(request));
+    if (out.error) {
+      if (out.error === "not-moderator") {
+        await log(env, { label: `GitHub user @${out.login}` }, "sign_in_refused", "moderator", null,
+          `@${out.login} tried to sign in but none of their GitHub email addresses is on the moderator list`);
+      }
+      headers.set("Location", `${origin}/admin/?error=${out.error}`);
+      return new Response(null, { status: 302, headers });
+    }
+    const m = out.moderator;
+    await log(env, { ...m, label: who(m) }, "signed_in", "moderator", m.id, `${m.name} signed in with GitHub (@${out.login})`);
+    headers.append("Set-Cookie", out.sessionCookie);
+    headers.set("Location", `${origin}/admin/#queue`);
+    return new Response(null, { status: 302, headers });
+  }
+
+  if (path === "/logout" && request.method === "POST") {
+    await endSession(env, request);
+    return new Response(JSON.stringify({ ok: true }), { headers: { "content-type": "application/json", "Set-Cookie": clearSessionCookie(request) } });
+  }
+  return fail(404, "Not found.");
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -420,6 +454,8 @@ export default {
       if (url.pathname === "/api/news" && request.method === "GET") return await publicNews(env);
       if (url.pathname === "/api/events/submit" && request.method === "POST") return await submitEvent(request, env);
 
+      if (url.pathname.startsWith("/api/auth/")) return await handleAuth(request, env, url);
+
       if (url.pathname.startsWith("/api/admin/")) {
         const me = await currentModerator(request, env);
         if (!me) return fail(401, "You're not signed in as a moderator.");
@@ -427,7 +463,14 @@ export default {
       }
       if (url.pathname.startsWith("/api/")) return fail(404, "Not found.");
 
-      return env.ASSETS.fetch(request);
+      const page = await env.ASSETS.fetch(request);
+      // While on the temporary workers.dev address, ask search engines not to list the site.
+      if (url.hostname.endsWith(".workers.dev")) {
+        const res = new Response(page.body, page);
+        res.headers.set("X-Robots-Tag", "noindex, nofollow");
+        return res;
+      }
+      return page;
     } catch (e) {
       if (e instanceof HttpError) return fail(e.status, e.message);
       console.error(e);
