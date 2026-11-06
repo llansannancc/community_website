@@ -256,6 +256,7 @@ async function prepareSubmit() {
   $("f-date").min = key(today);
   try {
     const cfg = await (await fetch("/api/config")).json();
+    if (cfg.publicPhotos === false) document.querySelector("#f-photo").closest(".field").hidden = true;
     if (cfg.turnstileSiteKey) {
       window.onTurnstileLoad = () => window.turnstile.render("#ts-widget", {
         sitekey: cfg.turnstileSiteKey, callback: (t) => (turnstileToken = t), "expired-callback": () => (turnstileToken = ""),
@@ -283,11 +284,12 @@ async function shrinkPhoto(file) {
     throw new Error("That photo is too large. Please try another. / Mae'r llun yn rhy fawr.");
   } finally { URL.revokeObjectURL(url); }
 }
-function setSubmitPhoto(id) {
+function setSubmitPhoto(id, previewBlob) {
   const f = $("submit-form");
   f.elements.image_id.value = id || "";
   $("f-photo-preview").hidden = !id;
-  if (id) $("f-photo-preview").src = "/img/" + id;
+  // Preview from the person's own copy (the uploaded one stays private until the event is approved)
+  if (id && previewBlob) $("f-photo-preview").src = URL.createObjectURL(previewBlob);
   $("f-photo-remove").hidden = !id;
   $("f-alt-field").hidden = !id;
   if (!id) f.elements.image_alt.value = "";
@@ -306,7 +308,7 @@ $("f-photo").addEventListener("change", async (e) => {
     const res = await fetch("/api/events/photo", { method: "POST", headers: { "content-type": "image/jpeg" }, body: blob });
     const out = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(out.error || "Upload failed");
-    setSubmitPhoto(out.id);
+    setSubmitPhoto(out.id, blob);
     status.textContent = "";
   } catch (err) { status.textContent = err.message; }
 });

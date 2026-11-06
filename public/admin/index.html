@@ -104,6 +104,10 @@
   .photo-box { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
   .photo-box img { width: 160px; height: 110px; object-fit: cover; border-radius: 4px; border: 1px solid var(--line); }
   .photo-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .photo-check { position: relative; width: 100%; max-width: 360px; height: 200px; margin-top: 8px; border-radius: 4px; overflow: hidden; background: #c9d3dd; }
+  .photo-check .card-photo { width: 100%; height: 100%; max-height: none; margin: 0; transform: scale(1.1); }
+  .photo-check .btn { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: #fff; }
+  .card-photo.blurred { filter: blur(22px) grayscale(0.6); }
   .card-photo { width: 100%; max-width: 360px; max-height: 220px; object-fit: cover; border-radius: 4px; margin-top: 8px; display: block; }
   .gh-btn { gap: 10px; font-size: 1rem; min-height: 50px; }
   .denied { background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 28px; max-width: 620px; }

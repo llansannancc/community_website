@@ -15,7 +15,7 @@ ok(r.status === 200 && /^[a-f0-9]{32}$/.test(id), "a moderator uploads a photo a
 r = await fetch(BASE + "/img/" + id);
 const back = new Uint8Array(await r.arrayBuffer());
 ok(r.status === 200 && r.headers.get("content-type") === "image/jpeg" && back.length === jpeg.length, "the photo is served back unchanged");
-ok(/immutable/.test(r.headers.get("cache-control")), "photos are cached by browsers");
+ok(/max-age=86400/.test(r.headers.get("cache-control")), "photos are cached by browsers for a day (so a removed photo disappears quickly)");
 r = await up(new TextEncoder().encode("<svg onload=alert(1)>"), "image/svg+xml", "mod1@example.com");
 ok(r.status === 400, "other file types (e.g. SVG) are refused");
 r = await up(new Uint8Array(1_200_000), "image/jpeg", "mod1@example.com");

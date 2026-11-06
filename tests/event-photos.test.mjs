@@ -11,7 +11,11 @@ const json = (path, body, as) => fetch(BASE + path, { method: body ? "POST" : "G
 let r = await publicUpload(withLocation);
 const { id } = await r.json();
 ok(r.status === 200 && /^[a-f0-9]{32}$/.test(id), "the public can upload a photo with their event");
-const stored = new Uint8Array(await (await fetch(BASE + "/img/" + id)).arrayBuffer());
+let view = await fetch(BASE + "/img/" + id);
+ok(view.status === 404, "a sent-in photo can't be viewed by the public before its event is approved, even with the link");
+view = await fetch(BASE + "/img/" + id, { headers: { "x-dev-user": "mod1@example.com" } });
+ok(view.status === 200 && /no-store/.test(view.headers.get("cache-control")), "…but moderators can see it to check it");
+const stored = new Uint8Array(await view.arrayBuffer());
 const text = Buffer.from(stored).toString("latin1");
 ok(!text.includes("Exif") && !text.includes("PhoneMaker"), "hidden details (camera, GPS location) are removed from the photo");
 ok(stored[0] === 0xff && stored[1] === 0xd8 && stored.length > 500, "…and the picture itself is still intact");
@@ -32,6 +36,19 @@ ok(sub?.image_id === id && sub.image_alt === "A scarecrow in a hat", "moderators
 await json(`/api/admin/events/${sub.id}/approve`, {}, "mod1@example.com");
 pub = await json("/api/events");
 ok(pub.data.events.find((e) => e.title_en === "Scarecrow trail")?.image_id === id, "once approved, the photo appears with the event");
+ok((await fetch(BASE + "/img/" + id)).status === 200, "…and the public can now view it");
+
+// Rejecting an event deletes the photo sent in with it straight away
+const up2 = await (await publicUpload(small)).json();
+await json("/api/events/submit", { ...ev, title_en: "Rude photo", image_id: up2.id });
+q = await json("/api/admin/events?status=pending", null, "mod2@example.com");
+const rude = q.data.items.find((e) => e.title_en === "Rude photo");
+r = await json(`/api/admin/events/${rude.id}/reject`, { reason: "Unsuitable photo" }, "mod2@example.com");
+ok(r.status === 200, "a moderator rejects an event with an unsuitable photo");
+view = await fetch(BASE + "/img/" + up2.id, { headers: { "x-dev-user": "lead1@example.com" } });
+ok(view.status === 404, "the photo is deleted immediately, not kept for the daily clean-up");
+const log = await json("/api/admin/activity?type=event", null, "lead1@example.com");
+ok(log.data.activity.some((a) => a.summary.includes("the photo sent in with it was deleted")), "the activity log records that the photo was deleted");
 
 // A moderator-only photo id can't be borrowed through the public form
 const modUp = await fetch(BASE + "/api/admin/images", { method: "POST", headers: { "content-type": "image/jpeg", "x-dev-user": "lead1@example.com" }, body: small });
@@ -45,7 +62,7 @@ r = await json("/api/admin/events", { title_en: "Carol concert", location_en: "C
 pub = await json("/api/events");
 ok(pub.data.events.find((e) => e.title_en === "Carol concert")?.image_id === modId, "a moderator adds a photo to an event");
 
-// Rate limit (6 per hour from one connection; 1 used above)
+// Rate limit: at most 6 stored photos per hour from one connection (one is still stored from above)
 let codes = [];
 for (let i = 0; i < 6; i++) codes.push((await publicUpload(small)).status);
 ok(codes.slice(0, 5).every((c) => c === 200) && codes[5] === 429, `uploads from one connection are limited per hour (${codes.join(",")})`);

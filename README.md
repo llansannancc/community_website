@@ -26,6 +26,14 @@ To set it up for the first time, see **[SETUP.md](SETUP.md)**.
 
 Moderators sign in at **/admin** with **Sign in with GitHub**. The site checks the verified email addresses on their GitHub account against the moderator list. There are no passwords or codes to manage.
 
+## If someone sends an unsuitable photo
+
+- Photos sent in by the public are **never public until a moderator approves the event**. Until then, only signed-in moderators can open them, even with the link.
+- In the approval queue they're **blurred**. Click **Show photo** to check one.
+- **Reject** deletes the photo straight away, and the activity log records it.
+- To stop the public sending photos altogether, set `"PUBLIC_PHOTOS": "off"` in `wrangler.jsonc` and push. People can still send events without a photo.
+- If a photo looks illegal (for example, any sexual image of a child), don't download, forward or screenshot it. Reject it, and report it to the Internet Watch Foundation at report.iwf.org.uk, or to the police.
+
 ## Where things are
 
 | File | What it is |

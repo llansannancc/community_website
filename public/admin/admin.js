@@ -96,7 +96,11 @@ function cardHTML(kind, it) {
        ${it.description_en ? `<div class="desc">${esc(it.description_en)}</div>` : ""}`
     : isEvent
     ? `<div class="when">${when(it.start_at, it.end_at)}</div><div class="meta">📍 ${esc(it.location_en)}${it.organiser ? ` · Organised by ${esc(it.organiser)}` : ""}</div>
-       ${it.image_id ? `<img class="card-photo" src="/img/${esc(it.image_id)}" alt="${esc(it.image_alt || "")}" loading="lazy">${it.source === "public" && it.status === "pending" ? `<div class="note info">Photo sent in by the public. Please check it's suitable before approving.</div>` : ""}` : ""}
+       ${it.image_id ? (it.source === "public" && it.status === "pending"
+         ? `<div class="photo-check"><img class="card-photo blurred" src="/img/${esc(it.image_id)}" alt="${esc(it.image_alt || "")}">
+              <button class="btn" type="button" data-do="reveal">Show photo</button></div>
+            <div class="note info">Photo sent in by the public. It's blurred until you choose to look. Check it's suitable before approving. If it's offensive, <strong>Reject</strong> deletes it straight away.</div>`
+         : `<img class="card-photo" src="/img/${esc(it.image_id)}" alt="${esc(it.image_alt || "")}" loading="lazy">`) : ""}
        ${it.description_en ? `<div class="desc">${esc(it.description_en)}</div>` : ""}`
     : `<div class="meta">${esc(it.category_en)}${it.published_at ? ` · published ${ago(it.published_at)}` : ""}</div>
        ${it.image_id ? `<img class="card-photo" src="/img/${esc(it.image_id)}" alt="${esc(it.image_alt || "")}" loading="lazy">` : ""}
@@ -124,6 +128,7 @@ function wireCards(container, reload) {
     card.querySelectorAll("[data-do]").forEach((b) => {
       const d = b.dataset.do;
       if (d === "approve" || d === "restore") b.onclick = async () => { b.disabled = true; try { await act(d); } catch (e) { toast(e.message); b.disabled = false; } };
+      if (d === "reveal") b.onclick = () => { const img = card.querySelector(".blurred"); img.classList.remove("blurred"); img.style.transform = "none"; b.remove(); };
       if (d === "reject-open") b.onclick = () => card.querySelector(".reject-box").classList.add("show");
       if (d === "reject-cancel") b.onclick = () => card.querySelector(".reject-box").classList.remove("show");
       if (d === "reject") b.onclick = async () => { b.disabled = true; try { await act("reject", { reason: card.querySelector(".reject-box textarea").value }); } catch (e) { toast(e.message); b.disabled = false; } };

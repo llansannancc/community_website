@@ -189,6 +189,7 @@ async function submitEvent(request, env) {
   if (!(await checkTurnstile(b.turnstile, request, env))) httpError(400, "Please complete the spam check and try again.");
   if (!b.consent) httpError(400, "Please tick the box to agree to the privacy notice.");
   const e = eventInput(b, { isPublic: true });
+  if (e.image_id && env.PUBLIC_PHOTOS === "off") { e.image_id = null; e.image_alt = null; }
   if (e.image_id) {
     const img = await env.DB.prepare("SELECT id FROM images WHERE id = ? AND source = 'public'").bind(e.image_id).first();
     if (!img) { e.image_id = null; e.image_alt = null; }
@@ -314,6 +315,16 @@ async function editItem(env, me, kind, id, b) {
   return { id, status };
 }
 
+/** If this item has a photo sent in by the public, delete the photo now (used when rejecting or deleting). */
+async function removePublicPhoto(env, table, item) {
+  if (table !== "events" || !item.image_id) return false;
+  const img = await env.DB.prepare("SELECT source FROM images WHERE id = ?").bind(item.image_id).first();
+  if (!img || img.source !== "public") return false;
+  await env.DB.prepare("UPDATE events SET image_id = NULL, image_alt = NULL WHERE id = ?").bind(item.id).run();
+  await env.DB.prepare("DELETE FROM images WHERE id = ?").bind(item.image_id).run();
+  return true;
+}
+
 async function reviewItem(env, me, kind, id, action, b) {
   const K = KINDS[kind];
   const { table, label } = K;
@@ -339,8 +350,9 @@ async function reviewItem(env, me, kind, id, action, b) {
     const wasLive = item.status === "approved";
     await env.DB.prepare(`UPDATE ${table} SET status = 'rejected', reviewed_by = ?, reviewed_at = ?, reject_reason = ? WHERE id = ?`).bind(me.id, now, reason, id).run();
     const own = item.submitted_by === me.id;
+    const photoGone = await removePublicPhoto(env, table, item);
     await log(env, me, wasLive ? "taken_down" : own ? "withdrawn" : "rejected", kind, id,
-      `${wasLive ? "Took down" : own ? "Withdrew own" : "Rejected"} ${label} "${item.title_en}"${reason ? ` — reason: ${reason}` : ""}`);
+      `${wasLive ? "Took down" : own ? "Withdrew own" : "Rejected"} ${label} "${item.title_en}"${reason ? ` — reason: ${reason}` : ""}${photoGone ? " (the photo sent in with it was deleted)" : ""}`);
     return { id, status: "rejected" };
   }
 
@@ -358,6 +370,7 @@ async function reviewItem(env, me, kind, id, action, b) {
       ? "UPDATE events SET status = 'deleted', contact_name = NULL, contact_email = NULL, contact_phone = NULL, image_id = NULL WHERE id = ?"
       : kind === "news" ? "UPDATE news SET status = 'deleted', image_id = NULL WHERE id = ?"
       : `UPDATE ${table} SET status = 'deleted' WHERE id = ?`;
+    await removePublicPhoto(env, table, item);
     await env.DB.prepare(sql).bind(id).run();
     await log(env, me, "deleted", kind, id, `Deleted ${label} "${item.title_en}"`);
     return { id, status: "deleted" };
@@ -498,6 +511,7 @@ async function uploadImage(request, env, me) {
 // until a moderator approves the event. Limited to a few uploads per hour from each connection.
 const PUBLIC_UPLOADS_PER_HOUR = 6;
 async function uploadPublicImage(request, env) {
+  if (env.PUBLIC_PHOTOS === "off") httpError(403, "Sending photos is switched off at the moment. You can still send your event without one.");
   const ip = request.headers.get("CF-Connecting-IP") || "local";
   const ipHash = await sha256hex(`llansannan:${ip}`);
   const since = new Date(Date.now() - 3600000).toISOString();
@@ -514,12 +528,22 @@ async function sha256hex(text) {
   return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function serveImage(env, id) {
+async function serveImage(request, env, id) {
   if (!IMAGE_ID.test(id)) return fail(404, "Not found.");
-  const row = await env.DB.prepare("SELECT mime, data FROM images WHERE id = ?").bind(id).first();
+  const row = await env.DB.prepare("SELECT mime, data, source FROM images WHERE id = ?").bind(id).first();
   if (!row) return fail(404, "Not found.");
+  let cache = "public, max-age=86400";
+  if (row.source === "public") {
+    // A photo sent in by the public is only shown once a moderator has approved its event.
+    // Until then only signed-in moderators can see it, even if someone has the link.
+    const live = await env.DB.prepare("SELECT 1 AS ok FROM events WHERE image_id = ? AND status = 'approved' LIMIT 1").bind(id).first();
+    if (!live) {
+      if (!(await currentModerator(request, env))) return fail(404, "Not found.");
+      cache = "private, no-store";
+    }
+  }
   return new Response(fromBase64(row.data), {
-    headers: { "content-type": row.mime, "cache-control": "public, max-age=31536000, immutable", "x-content-type-options": "nosniff" },
+    headers: { "content-type": row.mime, "cache-control": cache, "x-content-type-options": "nosniff" },
   });
 }
 
@@ -654,11 +678,11 @@ export default {
     const url = new URL(request.url);
     try {
       if (url.pathname.startsWith("/api/")) await ensureSchema(env);
-      if (url.pathname === "/api/config") return json({ turnstileSiteKey: env.TURNSTILE_SITE_KEY || null });
+      if (url.pathname === "/api/config") return json({ turnstileSiteKey: env.TURNSTILE_SITE_KEY || null, publicPhotos: env.PUBLIC_PHOTOS !== "off" });
       if (url.pathname === "/api/events" && request.method === "GET") return await publicEvents(env);
       if (url.pathname === "/api/news" && request.method === "GET") return await publicNews(env);
       if (url.pathname === "/api/weekly" && request.method === "GET") return await publicWeekly(env);
-      if (url.pathname.startsWith("/img/") && request.method === "GET") { await ensureSchema(env); return await serveImage(env, url.pathname.slice(5)); }
+      if (url.pathname.startsWith("/img/") && request.method === "GET") { await ensureSchema(env); return await serveImage(request, env, url.pathname.slice(5)); }
       if (url.pathname === "/api/events/submit" && request.method === "POST") return await submitEvent(request, env);
       if (url.pathname === "/api/events/photo" && request.method === "POST") return await uploadPublicImage(request, env);
 

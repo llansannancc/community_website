@@ -45,7 +45,9 @@
     // The Turnstile "site key" (spam check on the public form). Can be added any time; see SETUP.md.
     "TURNSTILE_SITE_KEY": "",
     // Moderator sign-in: the "Client ID" of the GitHub OAuth app (see SETUP.md). Not secret.
-    "GITHUB_CLIENT_ID": "Ov23liJQRS3ADQmNwQ97"
+    "GITHUB_CLIENT_ID": "Ov23liJQRS3ADQmNwQ97",
+    // Let people attach a photo when they submit an event: "on" or "off"
+    "PUBLIC_PHOTOS": "on"
     // Secrets are added in the dashboard (Settings > Variables and Secrets > Add > type "Secret"), never here:
     //   GITHUB_CLIENT_SECRET  from the GitHub OAuth app (see SETUP.md)
     //   TURNSTILE_SECRET      spam check, Stage 2
