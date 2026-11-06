@@ -37,6 +37,7 @@ function toNews(r) {
   return {
     id: r.id, date: r.published_at,
     cat: [esc(r.category_en), esc(r.category_cy || r.category_en)],
+    image: r.image_id ? { src: "/img/" + encodeURIComponent(r.image_id), alt: esc(r.image_alt || "") } : null,
     en: { t: esc(r.title_en), s: esc(r.summary_en), body: para(r.body_en) },
     cy: { t: esc(r.title_cy || r.title_en), s: esc(r.summary_cy || r.summary_en), body: para(r.body_cy || r.body_en) },
   };
@@ -161,7 +162,8 @@ function drawFullList() {
 
 function newsCard(n) {
   const d = new Date(n.date);
-  return `<article class="news-card">
+  return `<article class="news-card${n.image ? " has-photo" : ""}">
+    ${n.image ? `<img class="news-photo" src="${n.image.src}" alt="${n.image.alt}" loading="lazy">` : ""}
     <div class="meta"><span class="cat">${both(n.cat[0], n.cat[1])}</span><time>${both(d.getDate() + " " + M.en[d.getMonth()], d.getDate() + " " + M.cy[d.getMonth()])}</time></div>
     <h3>${both(n.en.t, n.cy.t)}</h3>
     <p>${both(n.en.s, n.cy.s)}</p>

@@ -98,6 +98,7 @@ function cardHTML(kind, it) {
     ? `<div class="when">${when(it.start_at, it.end_at)}</div><div class="meta">📍 ${esc(it.location_en)}${it.organiser ? ` · Organised by ${esc(it.organiser)}` : ""}</div>
        ${it.description_en ? `<div class="desc">${esc(it.description_en)}</div>` : ""}`
     : `<div class="meta">${esc(it.category_en)}${it.published_at ? ` · published ${ago(it.published_at)}` : ""}</div>
+       ${it.image_id ? `<img class="card-photo" src="/img/${esc(it.image_id)}" alt="${esc(it.image_alt || "")}" loading="lazy">` : ""}
        <div class="desc"><strong>${esc(it.summary_en)}</strong>${it.body_en ? "\n\n" + esc(it.body_en) : ""}</div>`;
 
   return `<div class="card ${it.status}" data-kind="${kind}" data-id="${it.id}">
@@ -197,6 +198,51 @@ $("ev-form").addEventListener("submit", async (e) => {
   } catch (err) { msg.className = "msg bad"; msg.textContent = err.message; }
 });
 
+// ---------- news photos ----------
+// Shrinks the photo in the browser (max 1600px wide/high, JPEG) so it uploads quickly and fits the database.
+async function shrinkPhoto(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => bad(new Error("That file couldn't be opened as a photo. Please choose a JPEG or PNG.")); i.src = url; });
+    const scale = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement("canvas");
+    c.width = Math.round(img.naturalWidth * scale); c.height = Math.round(img.naturalHeight * scale);
+    const ctx = c.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(img, 0, 0, c.width, c.height);
+    for (const q of [0.85, 0.75, 0.65, 0.5]) {
+      const blob = await new Promise((ok) => c.toBlob(ok, "image/jpeg", q));
+      if (blob && blob.size <= 900_000) return blob;
+    }
+    throw new Error("That photo is too large even after shrinking. Please try another.");
+  } finally { URL.revokeObjectURL(url); }
+}
+function showPhoto(id, alt) {
+  const f = $("nw-form");
+  f.elements.image_id.value = id || "";
+  $("nw-photo-preview").hidden = !id;
+  if (id) $("nw-photo-preview").src = `/img/${id}`;
+  $("nw-photo-remove").hidden = !id;
+  $("nw-alt-field").hidden = !id;
+  $("nw-photo-pick").textContent = id ? "Change photo" : "Choose a photo";
+  if (alt !== undefined) f.elements.image_alt.value = alt || "";
+  $("nw-photo-status").textContent = "";
+}
+$("nw-photo-file").addEventListener("change", async (e) => {
+  const file = e.target.files[0]; e.target.value = "";
+  if (!file) return;
+  const status = $("nw-photo-status");
+  status.textContent = "Preparing photo…";
+  try {
+    const blob = await shrinkPhoto(file);
+    status.textContent = "Uploading…";
+    const res = await fetch("/api/admin/images", { method: "POST", headers: { "content-type": "image/jpeg", ...(devAs ? { "x-dev-user": devAs } : {}) }, body: blob });
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(out.error || "Upload failed");
+    showPhoto(out.id);
+    $("nw-form").elements.image_alt.focus();
+  } catch (err) { status.textContent = err.message; }
+});
+$("nw-photo-remove").onclick = () => showPhoto("", "");
+
 async function openNewsForm(id) {
   const f = $("nw-form"); f.reset(); f.elements.id.value = ""; $("nw-msg").textContent = "";
   const lead = me.role === "lead";
@@ -205,9 +251,11 @@ async function openNewsForm(id) {
     const it = items.find((x) => x.id === id);
     if (!it) { toast("That post couldn't be found."); location.hash = "#news"; return; }
     fillForm(f, it); f.elements.id.value = it.id;
+    showPhoto(it.image_id, it.image_alt);
     $("nw-form-title").textContent = "Edit news post";
     $("nw-form-intro").textContent = it.status === "approved" && !lead ? "This post is live. If you save changes, it will come off the website until another moderator approves it." : "";
   } else {
+    showPhoto("", "");
     $("nw-form-title").textContent = "Add a news post";
     $("nw-form-intro").textContent = lead ? "As a lead moderator, your post goes live as soon as you save it." : "Once saved, another moderator needs to approve your post before it goes live.";
   }

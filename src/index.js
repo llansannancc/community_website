@@ -60,7 +60,7 @@ function diff(before, after, fields) {
 
 // ---------- field definitions ----------
 const EVENT_FIELDS = ["title_en", "title_cy", "description_en", "description_cy", "location_en", "location_cy", "start_at", "end_at", "organiser", "contact_name", "contact_email", "contact_phone"];
-const NEWS_FIELDS = ["title_en", "title_cy", "summary_en", "summary_cy", "body_en", "body_cy", "category_en", "category_cy"];
+const NEWS_FIELDS = ["title_en", "title_cy", "summary_en", "summary_cy", "body_en", "body_cy", "category_en", "category_cy", "image_id", "image_alt"];
 const WEEKLY_FIELDS = ["title_en", "title_cy", "description_en", "description_cy", "location_en", "location_cy", "organiser",
   "day", "start_time", "end_time", "week_of_month", "starts_on", "ends_on"];
 
@@ -117,6 +117,14 @@ function weeklyInput(b) {
   return w;
 }
 
+const IMAGE_ID = /^[a-f0-9]{32}$/;
+function imageId(v) {
+  const s = v == null ? "" : String(v).trim();
+  if (!s) return null;
+  if (!IMAGE_ID.test(s)) httpError(400, "That photo couldn't be found. Please upload it again.");
+  return s;
+}
+
 function newsInput(b) {
   return {
     title_en: clean(b.title_en, 140, { required: true, label: "Headline" }),
@@ -127,6 +135,8 @@ function newsInput(b) {
     body_cy: clean(b.body_cy, 5000, { label: "Welsh full story" }),
     category_en: clean(b.category_en, 40, { label: "Category" }) || "Community",
     category_cy: clean(b.category_cy, 40, { label: "Welsh category" }),
+    image_id: imageId(b.image_id),
+    image_alt: clean(b.image_alt, 200, { label: "Photo description" }),
   };
 }
 
@@ -166,7 +176,7 @@ async function publicWeekly(env) {
 
 async function publicNews(env) {
   const { results } = await env.DB.prepare(
-    "SELECT id, title_en, title_cy, summary_en, summary_cy, body_en, body_cy, category_en, category_cy, published_at FROM news WHERE status = 'approved' ORDER BY published_at DESC LIMIT 30"
+    "SELECT id, title_en, title_cy, summary_en, summary_cy, body_en, body_cy, category_en, category_cy, image_id, image_alt, published_at FROM news WHERE status = 'approved' ORDER BY published_at DESC LIMIT 30"
   ).all();
   return json({ news: results });
 }
@@ -410,6 +420,45 @@ async function activityLog(env, url) {
   return results;
 }
 
+// ---------- photos ----------
+// Photos are shrunk in the moderator's browser before upload, then stored in the database
+// (Cloudflare's R2 storage would need a card on the account). Each photo gets a random id.
+const MAX_IMAGE_BYTES = 1_000_000;
+const IMAGE_TYPES = ["image/jpeg", "image/webp", "image/png"];
+
+function toBase64(bytes) {
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+function fromBase64(b64) {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+async function uploadImage(request, env, me) {
+  const type = (request.headers.get("content-type") || "").split(";")[0].trim();
+  if (!IMAGE_TYPES.includes(type)) httpError(400, "Please choose a JPEG or PNG photo.");
+  const bytes = new Uint8Array(await request.arrayBuffer());
+  if (!bytes.length) httpError(400, "The photo was empty.");
+  if (bytes.length > MAX_IMAGE_BYTES) httpError(400, "That photo is too large. Please try a smaller one.");
+  const id = [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, "0")).join("");
+  await env.DB.prepare("INSERT INTO images (id, mime, data, size, uploaded_by) VALUES (?, ?, ?, ?, ?)")
+    .bind(id, type, toBase64(bytes), bytes.length, me.id).run();
+  return json({ id });
+}
+
+async function serveImage(env, id) {
+  if (!IMAGE_ID.test(id)) return fail(404, "Not found.");
+  const row = await env.DB.prepare("SELECT mime, data FROM images WHERE id = ?").bind(id).first();
+  if (!row) return fail(404, "Not found.");
+  return new Response(fromBase64(row.data), {
+    headers: { "content-type": row.mime, "cache-control": "public, max-age=31536000, immutable", "x-content-type-options": "nosniff" },
+  });
+}
+
 // ---------- router ----------
 async function handleAdmin(request, env, url, me) {
   const path = url.pathname.replace(/^\/api\/admin/, "");
@@ -419,6 +468,7 @@ async function handleAdmin(request, env, url, me) {
   let m;
 
   if (path === "/me" && method === "GET") return json({ me });
+  if (path === "/images" && method === "POST") return await uploadImage(request, env, me);
 
   // Events and news share the same routes
   if ((m = path.match(/^\/(events|news|weekly)$/))) {
@@ -499,6 +549,12 @@ let schemaReady = false;
 async function ensureSchema(env) {
   if (schemaReady) return;
   await env.DB.batch(SCHEMA_UPDATES.map((sql) => env.DB.prepare(sql)));
+  // New columns on existing tables (SQLite can't say "IF NOT EXISTS" for columns)
+  const { results } = await env.DB.prepare("PRAGMA table_info(news)").all();
+  const have = new Set(results.map((c) => c.name));
+  for (const [col, type] of [["image_id", "TEXT"], ["image_alt", "TEXT"]]) {
+    if (!have.has(col)) await env.DB.prepare(`ALTER TABLE news ADD COLUMN ${col} ${type}`).run();
+  }
   schemaReady = true;
 }
 const SCHEMA_UPDATES = [
@@ -518,6 +574,8 @@ const SCHEMA_UPDATES = [
      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
      updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')))`,
   `CREATE INDEX IF NOT EXISTS idx_weekly_status_day ON weekly (status, day)`,
+  `CREATE TABLE IF NOT EXISTS images (id TEXT PRIMARY KEY, mime TEXT NOT NULL, data TEXT NOT NULL, size INTEGER NOT NULL,
+     uploaded_by INTEGER REFERENCES moderators(id), created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')))`,
 ];
 
 export default {
@@ -529,6 +587,7 @@ export default {
       if (url.pathname === "/api/events" && request.method === "GET") return await publicEvents(env);
       if (url.pathname === "/api/news" && request.method === "GET") return await publicNews(env);
       if (url.pathname === "/api/weekly" && request.method === "GET") return await publicWeekly(env);
+      if (url.pathname.startsWith("/img/") && request.method === "GET") { await ensureSchema(env); return await serveImage(env, url.pathname.slice(5)); }
       if (url.pathname === "/api/events/submit" && request.method === "POST") return await submitEvent(request, env);
 
       if (url.pathname.startsWith("/api/auth/")) return await handleAuth(request, env, url);

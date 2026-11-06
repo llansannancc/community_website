@@ -42,6 +42,7 @@ Moderators sign in at **/admin** with **Sign in with GitHub**. The site checks t
 ## Common changes
 
 - **Text on the pages** (history, local services, the hall and so on): edit `public/index.html`. Each piece of text has an English and a Welsh version side by side: `<span class="en">…</span><span class="cy">…</span>`.
+- **Photos on news stories:** in the news form, click **Choose a photo**. It's shrunk automatically and stored in the database (no R2 or card needed). Add a short description for people using screen readers.
 - **Events, news and regular activities** (weekly classes, monthly coffee mornings): don't edit files. Use the moderator area: **Events**, **News** and **Regular**. They all follow the same approval rules.
 
 Push the changes to GitHub. If automatic builds are connected, the site updates within a minute; otherwise run `npm run deploy`.
