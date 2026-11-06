@@ -225,7 +225,7 @@ function route() {
   let p = h;
   if (h.startsWith("event-")) p = renderDetail(Number(h.split("-")[1])) ? "event" : "home";
   if (!$("page-" + p)) p = "home";
-  if (p === "submit") prepareSubmit();
+  if (FORMS[p]) prepareForm(p);
   show(p); window.scrollTo(0, 0);
 }
 
@@ -247,28 +247,42 @@ document.querySelectorAll(".drop-btn").forEach((b) => b.addEventListener("click"
 }));
 document.addEventListener("click", () => document.querySelectorAll(".menu > li.open").forEach((x) => x.classList.remove("open")));
 
-// ---------- Submit an event ----------
-let turnstileReady = false, turnstileToken = "";
-async function prepareSubmit() {
-  if (turnstileReady) return;
-  turnstileReady = true;
-  const d = new Date(today); d.setDate(d.getDate() + 1);
-  $("f-date").min = key(today);
-  try {
-    const cfg = await (await fetch("/api/config")).json();
-    if (cfg.publicPhotos === false) document.querySelector("#f-photo").closest(".field").hidden = true;
-    if (cfg.turnstileSiteKey) {
-      window.onTurnstileLoad = () => window.turnstile.render("#ts-widget", {
-        sitekey: cfg.turnstileSiteKey, callback: (t) => (turnstileToken = t), "expired-callback": () => (turnstileToken = ""),
-      });
-      const sc = document.createElement("script");
-      sc.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad&render=explicit";
-      sc.async = true; document.head.appendChild(sc);
-    }
-  } catch (e) { /* the server still checks */ }
+// ---------- Public forms: Submit an event, Send us your news ----------
+// Each form: its id, the prefix of its photo fields, where it posts, its Turnstile box, and its thank-you box.
+const FORMS = {
+  submit: { form: "submit-form", p: "f", url: "/api/events/submit", ts: "#ts-widget", msg: "submit-msg", done: "submit-done", again: "submit-again" },
+  "send-news": { form: "news-form", p: "n", url: "/api/news/submit", ts: "#ts-widget-news", msg: "news-msg", done: "news-done", again: "news-again" },
+};
+const tsTokens = {}, tsDrawn = {};
+let cfgPromise = null, tsScript = null;
+function getConfig() {
+  if (!cfgPromise) cfgPromise = fetch("/api/config").then((r) => r.json()).catch(() => ({}));
+  return cfgPromise;
+}
+function loadTurnstile() {
+  if (!tsScript) tsScript = new Promise((ok) => {
+    window.onTurnstileLoad = ok;
+    const sc = document.createElement("script");
+    sc.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad&render=explicit";
+    sc.async = true; document.head.appendChild(sc);
+  });
+  return tsScript;
+}
+async function prepareForm(page) {
+  const F = FORMS[page];
+  if (page === "submit") $("f-date").min = key(today);
+  const cfg = await getConfig();
+  if (cfg.publicPhotos === false) $(F.p + "-photo").closest(".field").hidden = true;
+  if (cfg.turnstileSiteKey && !tsDrawn[page]) {
+    tsDrawn[page] = true;
+    await loadTurnstile();
+    window.turnstile.render(F.ts, {
+      sitekey: cfg.turnstileSiteKey, callback: (t) => (tsTokens[page] = t), "expired-callback": () => (tsTokens[page] = ""),
+    });
+  }
 }
 
-// Photo on the submission form: shrunk on the phone/computer first (max 1600px), which also removes hidden location details.
+// Photo on a public form: shrunk on the phone/computer first (max 1600px), which also removes hidden location details.
 async function shrinkPhoto(file) {
   const url = URL.createObjectURL(file);
   try {
@@ -284,64 +298,74 @@ async function shrinkPhoto(file) {
     throw new Error("That photo is too large. Please try another. / Mae'r llun yn rhy fawr.");
   } finally { URL.revokeObjectURL(url); }
 }
-function setSubmitPhoto(id, previewBlob) {
-  const f = $("submit-form");
+function setFormPhoto(F, id, previewBlob) {
+  const f = $(F.form), p = F.p;
   f.elements.image_id.value = id || "";
-  $("f-photo-preview").hidden = !id;
-  // Preview from the person's own copy (the uploaded one stays private until the event is approved)
-  if (id && previewBlob) $("f-photo-preview").src = URL.createObjectURL(previewBlob);
-  $("f-photo-remove").hidden = !id;
-  $("f-alt-field").hidden = !id;
+  $(p + "-photo-preview").hidden = !id;
+  // Preview from the person's own copy (the uploaded one stays private until it's approved)
+  if (id && previewBlob) $(p + "-photo-preview").src = URL.createObjectURL(previewBlob);
+  $(p + "-photo-remove").hidden = !id;
+  $(p + "-alt-field").hidden = !id;
   if (!id) f.elements.image_alt.value = "";
-  $("f-photo-pick").querySelectorAll("span[data-alt]").forEach((sp) => {
+  $(p + "-photo-pick").querySelectorAll("span[data-alt]").forEach((sp) => {
     if (!sp.dataset.orig) sp.dataset.orig = sp.textContent;
     sp.textContent = id ? sp.dataset.alt : sp.dataset.orig;
   });
 }
-$("f-photo").addEventListener("change", async (e) => {
-  const file = e.target.files[0]; e.target.value = "";
-  if (!file) return;
-  const status = $("f-photo-status");
-  status.textContent = "…";
-  try {
-    const blob = await shrinkPhoto(file);
-    const res = await fetch("/api/events/photo", { method: "POST", headers: { "content-type": "image/jpeg" }, body: blob });
-    const out = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(out.error || "Upload failed");
-    setSubmitPhoto(out.id, blob);
-    status.textContent = "";
-  } catch (err) { status.textContent = err.message; }
-});
-$("f-photo-remove").addEventListener("click", () => setSubmitPhoto(""));
 
-$("submit-form").addEventListener("submit", async (ev) => {
-  ev.preventDefault();
-  const f = ev.target, msg = $("submit-msg"), btn = f.querySelector("button[type=submit]");
+function formBody(page, f) {
   const v = (n) => f.elements[n].value.trim();
+  const common = {
+    image_id: v("image_id"), image_alt: v("image_alt"),
+    contact_name: v("contact_name"), contact_email: v("contact_email"), contact_phone: v("contact_phone"),
+    consent: f.elements.consent.checked, website: v("website"), turnstile: tsTokens[page] || "",
+  };
+  if (page === "send-news") return { ...common,
+    title_en: v("title_en"), story_en: v("story_en"), title_cy: v("title_cy"), story_cy: v("story_cy") };
   const date = v("date");
-  const body = {
+  return { ...common,
     title_en: v("title_en"), title_cy: v("title_cy"),
     description_en: v("description_en"), description_cy: v("description_cy"),
     location_en: v("location_en"), organiser: v("organiser"),
-    image_id: v("image_id"), image_alt: v("image_alt"),
-    start_at: `${date}T${v("start")}`, end_at: v("end") ? `${date}T${v("end")}` : `${date}T${v("start")}`,
-    contact_name: v("contact_name"), contact_email: v("contact_email"), contact_phone: v("contact_phone"),
-    consent: f.elements.consent.checked, website: v("website"), turnstile: turnstileToken,
-  };
-  btn.disabled = true; msg.className = "form-msg"; msg.textContent = "Sending… / Yn anfon…";
-  try {
-    const res = await fetch("/api/events/submit", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-    const out = await res.json();
-    if (!res.ok) throw new Error(out.error || "Something went wrong");
-    f.hidden = true;
-    $("submit-done").hidden = false;
-    window.scrollTo(0, 0);
-  } catch (e) {
-    msg.className = "form-msg bad"; msg.textContent = e.message;
-    if (window.turnstile && typeof window.turnstile.reset === "function") { window.turnstile.reset(); turnstileToken = ""; }
-  } finally { btn.disabled = false; }
+    start_at: `${date}T${v("start")}`, end_at: v("end") ? `${date}T${v("end")}` : `${date}T${v("start")}` };
+}
+
+Object.entries(FORMS).forEach(([page, F]) => {
+  const p = F.p;
+  $(p + "-photo").addEventListener("change", async (e) => {
+    const file = e.target.files[0]; e.target.value = "";
+    if (!file) return;
+    const status = $(p + "-photo-status");
+    status.textContent = "…";
+    try {
+      const blob = await shrinkPhoto(file);
+      const res = await fetch("/api/photo", { method: "POST", headers: { "content-type": "image/jpeg" }, body: blob });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(out.error || "Upload failed");
+      setFormPhoto(F, out.id, blob);
+      status.textContent = "";
+    } catch (err) { status.textContent = err.message; }
+  });
+  $(p + "-photo-remove").addEventListener("click", () => setFormPhoto(F, ""));
+
+  $(F.form).addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const f = ev.target, msg = $(F.msg), btn = f.querySelector("button[type=submit]");
+    btn.disabled = true; msg.className = "form-msg"; msg.textContent = "Sending… / Yn anfon…";
+    try {
+      const res = await fetch(F.url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(formBody(page, f)) });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(out.error || "Something went wrong");
+      f.hidden = true;
+      $(F.done).hidden = false;
+      window.scrollTo(0, 0);
+    } catch (e) {
+      msg.className = "form-msg bad"; msg.textContent = e.message;
+      if (window.turnstile && typeof window.turnstile.reset === "function") { window.turnstile.reset(F.ts); tsTokens[page] = ""; }
+    } finally { btn.disabled = false; }
+  });
+  $(F.again).addEventListener("click", () => { const f = $(F.form); f.reset(); setFormPhoto(F, ""); f.hidden = false; $(F.done).hidden = true; $(F.msg).textContent = ""; });
 });
-$("submit-again").addEventListener("click", () => { $("submit-form").reset(); setSubmitPhoto(""); $("submit-form").hidden = false; $("submit-done").hidden = true; $("submit-msg").textContent = ""; });
 
 // ---------- start ----------
 async function load() {

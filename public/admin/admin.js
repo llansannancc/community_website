@@ -62,19 +62,28 @@ function armed(btn, fn) {
 }
 
 // ---------- cards ----------
+function photoHTML(it) {
+  if (!it.image_id) return "";
+  if (it.source === "public" && it.status === "pending") {
+    return `<div class="photo-check"><img class="card-photo blurred" src="/img/${esc(it.image_id)}" alt="${esc(it.image_alt || "")}">
+        <button class="btn" type="button" data-do="reveal">Show photo</button></div>
+      <div class="note info">Photo sent in by the public. It's blurred until you choose to look. Check it's suitable before approving. If it's offensive, <strong>Reject</strong> deletes it straight away.</div>`;
+  }
+  return `<img class="card-photo" src="/img/${esc(it.image_id)}" alt="${esc(it.image_alt || "")}" loading="lazy">`;
+}
 function cardHTML(kind, it) {
   const isEvent = kind === "events";
   const lead = me.role === "lead";
   const mine = it.submitted_by === me.id || it.needs_other_than === me.id;
   let byline;
-  if (isEvent && it.source === "public") byline = `Submitted by the public on ${ago(it.created_at)}`;
+  if (it.source === "public") byline = `Sent in by the public on ${ago(it.created_at)}`;
   else byline = `Added by ${esc(it.submitted_by_name || "a moderator")} on ${ago(it.created_at)}`;
   if (it.last_edited_by_name && it.last_edited_by !== it.submitted_by) byline += ` · last edited by ${esc(it.last_edited_by_name)}`;
   if (it.reviewed_by_name && it.status !== "pending") byline += ` · ${it.status === "approved" ? "approved" : "rejected"} by ${esc(it.reviewed_by_name)}`;
 
-  const contact = isEvent && (it.contact_name || it.contact_email || it.contact_phone)
+  const contact = (it.contact_name || it.contact_email || it.contact_phone)
     ? `<div class="contact"><strong>Contact (private):</strong> ${esc(it.contact_name || "")}
-       ${it.contact_email ? ` · <a href="mailto:${esc(it.contact_email)}?subject=${encodeURIComponent("Your event: " + it.title_en)}">${esc(it.contact_email)}</a>` : ""}
+       ${it.contact_email ? ` · <a href="mailto:${esc(it.contact_email)}?subject=${encodeURIComponent((isEvent ? "Your event: " : "Your news: ") + it.title_en)}">${esc(it.contact_email)}</a>` : ""}
        ${it.contact_phone ? ` · <a href="tel:${esc(it.contact_phone)}">${esc(it.contact_phone)}</a>` : ""}</div>` : "";
 
   let note = "";
@@ -96,14 +105,11 @@ function cardHTML(kind, it) {
        ${it.description_en ? `<div class="desc">${esc(it.description_en)}</div>` : ""}`
     : isEvent
     ? `<div class="when">${when(it.start_at, it.end_at)}</div><div class="meta">📍 ${esc(it.location_en)}${it.organiser ? ` · Organised by ${esc(it.organiser)}` : ""}</div>
-       ${it.image_id ? (it.source === "public" && it.status === "pending"
-         ? `<div class="photo-check"><img class="card-photo blurred" src="/img/${esc(it.image_id)}" alt="${esc(it.image_alt || "")}">
-              <button class="btn" type="button" data-do="reveal">Show photo</button></div>
-            <div class="note info">Photo sent in by the public. It's blurred until you choose to look. Check it's suitable before approving. If it's offensive, <strong>Reject</strong> deletes it straight away.</div>`
-         : `<img class="card-photo" src="/img/${esc(it.image_id)}" alt="${esc(it.image_alt || "")}" loading="lazy">`) : ""}
+       ${photoHTML(it)}
        ${it.description_en ? `<div class="desc">${esc(it.description_en)}</div>` : ""}`
     : `<div class="meta">${esc(it.category_en)}${it.published_at ? ` · published ${ago(it.published_at)}` : ""}</div>
-       ${it.image_id ? `<img class="card-photo" src="/img/${esc(it.image_id)}" alt="${esc(it.image_alt || "")}" loading="lazy">` : ""}
+       ${photoHTML(it)}
+       ${it.source === "public" && it.status === "pending" ? `<div class="note info">The first part of their story is used as the summary on the homepage. Use <strong>Edit</strong> to tidy the wording or add a Welsh version before approving.</div>` : ""}
        <div class="desc"><strong>${esc(it.summary_en)}</strong>${it.body_en ? "\n\n" + esc(it.body_en) : ""}</div>`;
 
   return `<div class="card ${it.status}" data-kind="${kind}" data-id="${it.id}">

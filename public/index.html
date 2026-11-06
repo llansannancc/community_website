@@ -275,6 +275,10 @@
   .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .event-photo { width: 100%; max-height: 420px; object-fit: cover; border-radius: 6px; margin-bottom: 16px; display: block; background: var(--blue-soft); }
   .list-thumb { flex-shrink: 0; width: 96px; height: 72px; object-fit: cover; border-radius: 4px; margin-left: auto; align-self: center; }
+  [hidden] { display: none !important; }
+  .head-links { display: flex; gap: 6px; flex-wrap: wrap; align-items: baseline; }
+  details.welsh-opt { margin: 0 0 14px; }
+  details.welsh-opt summary { cursor: pointer; font-weight: 600; color: var(--blue); margin-bottom: 10px; min-height: 44px; display: flex; align-items: center; }
   /* Submit an event form */
   .form { max-width: 680px; }
   .form fieldset { border: none; padding: 0; margin: 0 0 22px; }
@@ -335,6 +339,7 @@
         <li><a href="#hall"><span class="en">Village Hall</span><span class="cy">Neuadd y Pentref</span></a></li>
         <li><a href="#groups"><span class="en">Clubs &amp; Groups</span><span class="cy">Clybiau a Grwpiau</span></a></li>
         <li><a href="#services"><span class="en">Local services</span><span class="cy">Gwasanaethau lleol</span></a></li>
+        <li><a href="#send-news"><span class="en">Send us your news</span><span class="cy">Anfonwch eich newyddion</span></a></li>
       </ul></li>
     <li><a href="#news" data-p="news"><span class="en">News</span><span class="cy">Newyddion</span></a></li>
     <li><a href="#contact" data-p="contact"><span class="en">Contact</span><span class="cy">Cysylltu</span></a></li>
@@ -416,7 +421,7 @@
     <div class="wrap">
       <div class="sec-head">
         <h2><span class="en">Village news</span><span class="cy">Newyddion y pentref</span></h2>
-        <a href="#news"><span class="en">All news ›</span><span class="cy">Pob newyddion ›</span></a>
+        <span class="head-links"><a href="#send-news"><span class="en">Send us your news</span><span class="cy">Anfonwch eich newyddion</span></a> · <a href="#news"><span class="en">All news ›</span><span class="cy">Pob newyddion ›</span></a></span>
       </div>
       <div class="news-layout">
         <div class="news-feed" id="news-feed"></div>
@@ -424,7 +429,7 @@
           <div class="fb-head"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 12a10 10 0 1 0-11.56 9.88v-6.99H7.9V12h2.54V9.8c0-2.5 1.49-3.89 3.78-3.89 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.78l-.44 2.89h-2.34v6.99A10 10 0 0 0 22 12z"/></svg><div><strong><span class="en">Village Facebook group</span><span class="cy">Grŵp Facebook y pentref</span></strong><small><span class="en">Where most of the village chats day to day</span><span class="cy">Lle mae'r rhan fwyaf o'r pentref yn sgwrsio</span></small></div></div>
           <p><span class="en">For quick updates, lost and found, recommendations and photos, join the village group on Facebook. Important news is also posted here on the website for anyone not on Facebook.</span><span class="cy">Am ddiweddariadau cyflym, pethau coll, argymhellion a lluniau, ymunwch â grŵp y pentref ar Facebook. Mae newyddion pwysig hefyd yn cael ei roi yma ar y wefan i bawb sydd ddim ar Facebook.</span></p>
           <a class="btn fb-btn" href="https://www.facebook.com/groups/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 12a10 10 0 1 0-11.56 9.88v-6.99H7.9V12h2.54V9.8c0-2.5 1.49-3.89 3.78-3.89 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.78l-.44 2.89h-2.34v6.99A10 10 0 0 0 22 12z"/></svg><span class="en">Join the group on Facebook</span><span class="cy">Ymuno â'r grŵp ar Facebook</span></a>
-          <p class="fb-small"><span class="en">Something to share? Post it in the group, or</span><span class="cy">Rhywbeth i'w rannu? Rhowch o yn y grŵp, neu</span> <a href="#submit"><span class="en">send it to us</span><span class="cy">anfonwch o atom ni</span></a>.</p>
+          <p class="fb-small"><span class="en">Something to share? Post it in the group, or</span><span class="cy">Rhywbeth i'w rannu? Rhowch o yn y grŵp, neu</span> <a href="#send-news"><span class="en">send it to us</span><span class="cy">anfonwch o atom ni</span></a>.</p>
         </aside>
       </div>
     </div>
@@ -450,6 +455,7 @@
 <div class="page wrap inner" id="page-news">
   <div class="crumb"><a href="#home"><span class="en">Home</span><span class="cy">Hafan</span></a> › <span class="en">News</span><span class="cy">Newyddion</span></div>
   <h2 class="title"><span class="en">Village news</span><span class="cy">Newyddion y pentref</span></h2>
+  <p><a class="btn btn-primary" href="#send-news"><span class="en">Send us your news</span><span class="cy">Anfonwch eich newyddion</span></a></p>
   <div id="news-all"></div>
 </div>
 
@@ -602,13 +608,64 @@
   </div>
 </div>
 
+<div class="page wrap inner" id="page-send-news">
+  <div class="crumb"><a href="#home"><span class="en">Home</span><span class="cy">Hafan</span></a> › <a href="#news"><span class="en">News</span><span class="cy">Newyddion</span></a> › <span class="en">Send us your news</span><span class="cy">Anfonwch eich newyddion</span></div>
+  <h2 class="title"><span class="en">Send us your news</span><span class="cy">Anfonwch eich newyddion</span></h2>
+  <p class="form"><span class="en">Something to share with the village: a thank you, a success, a reminder, a club update? Send it here. A volunteer moderator will check it, and may tidy the wording, before it appears on the website.</span><span class="cy">Rhywbeth i'w rannu â'r pentref: diolch, llwyddiant, nodyn atgoffa, newyddion clwb? Anfonwch o yma. Bydd cymedrolwr gwirfoddol yn ei wirio, ac efallai'n tacluso'r geiriad, cyn iddo ymddangos ar y wefan.</span></p>
+  <form id="news-form" class="form" novalidate>
+    <fieldset>
+      <legend><span class="en">Your news</span><span class="cy">Eich newyddion</span></legend>
+      <div class="field"><label for="n-title"><span class="en">Headline</span><span class="cy">Pennawd</span> <span class="req">*</span> <span class="hint"><span class="en">For example: Thank you to everyone at the Harvest Supper</span><span class="cy">Er enghraifft: Diolch i bawb yn y Swper Cynhaeaf</span></span></label>
+        <input id="n-title" name="title_en" required maxlength="140"></div>
+      <div class="field"><label for="n-story"><span class="en">Your news</span><span class="cy">Eich newyddion</span> <span class="req">*</span> <span class="hint"><span class="en">The first sentence or two are shown on the homepage</span><span class="cy">Mae'r frawddeg neu ddwy gyntaf yn cael eu dangos ar yr hafan</span></span></label>
+        <textarea id="n-story" name="story_en" required maxlength="5000" style="min-height:180px"></textarea></div>
+      <details class="welsh-opt"><summary><span class="en">Add a Welsh version (optional)</span><span class="cy">Ychwanegu fersiwn Gymraeg (dewisol)</span></summary>
+        <div class="field"><label for="n-title-cy">Pennawd</label><input id="n-title-cy" name="title_cy" maxlength="140"></div>
+        <div class="field"><label for="n-story-cy">Eich newyddion</label><textarea id="n-story-cy" name="story_cy" maxlength="5000"></textarea></div>
+      </details>
+      <div class="field" id="n-photo-field"><label for="n-photo"><span class="en">Photo</span><span class="cy">Llun</span> <span class="hint"><span class="en">Optional. Shown with your news once it's approved.</span><span class="cy">Dewisol. Yn cael ei ddangos gyda'ch newyddion unwaith y caiff ei gymeradwyo.</span></span></label>
+        <input type="hidden" name="image_id">
+        <div class="photo-box">
+          <img id="n-photo-preview" alt="" hidden>
+          <div class="photo-actions">
+            <label class="btn btn-outline" for="n-photo" id="n-photo-pick"><span class="en" data-alt="Change photo">Choose a photo</span><span class="cy" data-alt="Newid llun">Dewis llun</span></label>
+            <input id="n-photo" type="file" accept="image/*" class="visually-hidden">
+            <button class="btn btn-outline" type="button" id="n-photo-remove" hidden><span class="en">Remove</span><span class="cy">Tynnu</span></button>
+            <span class="hint" id="n-photo-status" role="status"></span>
+          </div>
+        </div>
+      </div>
+      <div class="field" id="n-alt-field" hidden><label for="n-alt"><span class="en">What does the photo show?</span><span class="cy">Beth sydd yn y llun?</span></label>
+        <input id="n-alt" name="image_alt" maxlength="200"></div>
+    </fieldset>
+    <fieldset>
+      <legend><span class="en">Your details</span><span class="cy">Eich manylion</span></legend>
+      <p class="hint" style="margin-bottom:10px"><span class="en">Only our moderators see these, in case they need to check something with you. They are never shown on the website.</span><span class="cy">Dim ond ein cymedrolwyr sy'n gweld y rhain, rhag ofn bod angen gwirio rhywbeth gyda chi. Nid ydynt byth yn cael eu dangos ar y wefan.</span></p>
+      <div class="field"><label for="n-name"><span class="en">Your name</span><span class="cy">Eich enw</span> <span class="req">*</span></label><input id="n-name" name="contact_name" required maxlength="120" autocomplete="name"></div>
+      <div class="field"><label for="n-email"><span class="en">Your email</span><span class="cy">Eich e-bost</span> <span class="req">*</span></label><input id="n-email" name="contact_email" type="email" required maxlength="200" autocomplete="email"></div>
+      <div class="field"><label for="n-phone"><span class="en">Phone</span><span class="cy">Ffôn</span> <span class="hint"><span class="en">Optional</span><span class="cy">Dewisol</span></span></label><input id="n-phone" name="contact_phone" type="tel" maxlength="40" autocomplete="tel"></div>
+      <div class="hp" aria-hidden="true"><label>Leave this empty <input name="website" tabindex="-1" autocomplete="off"></label></div>
+      <label class="check"><input type="checkbox" name="consent" required>
+        <span><span class="en">I agree to my details being used to check this news, as explained in the</span><span class="cy">Rwy'n cytuno i'm manylion gael eu defnyddio i wirio'r newyddion hyn, fel yr esbonnir yn yr</span> <a href="#privacy" target="_blank"><span class="en">privacy notice</span><span class="cy">hysbysiad preifatrwydd</span></a>.</span></label>
+    </fieldset>
+    <div id="ts-widget-news"></div>
+    <button class="btn btn-primary" type="submit"><span class="en">Send for approval</span><span class="cy">Anfon i'w gymeradwyo</span></button>
+    <p id="news-msg" class="form-msg" role="status" aria-live="polite"></p>
+  </form>
+  <div id="news-done" class="done-box" hidden>
+    <h3><span class="en">Thank you — diolch!</span><span class="cy">Diolch yn fawr!</span></h3>
+    <p><span class="en">Your news has been sent to our moderators. Once it's approved it will appear on the website. If they need to check anything, they'll email you.</span><span class="cy">Mae eich newyddion wedi'u hanfon at ein cymedrolwyr. Unwaith y caiff ei gymeradwyo bydd yn ymddangos ar y wefan. Os oes angen gwirio rhywbeth, byddant yn anfon e-bost atoch.</span></p>
+    <button id="news-again" class="btn btn-outline" type="button"><span class="en">Send more news</span><span class="cy">Anfon mwy o newyddion</span></button>
+  </div>
+</div>
+
 <div class="page wrap inner" id="page-privacy">
   <div class="crumb"><a href="#home"><span class="en">Home</span><span class="cy">Hafan</span></a> › <span class="en">Privacy</span><span class="cy">Preifatrwydd</span></div>
   <h2 class="title"><span class="en">Privacy notice</span><span class="cy">Hysbysiad preifatrwydd</span></h2>
   <div class="form">
     <p><span class="en">This community website is supported by Llansannan Community Council (Cyngor Cymuned Llansannan) and run by councillors and local volunteers. The Council is responsible for any personal information collected through the website (it is the "data controller"). We keep personal information to a minimum.</span><span class="cy">Cefnogir y wefan gymunedol hon gan Gyngor Cymuned Llansannan ac fe'i rhedir gan gynghorwyr a gwirfoddolwyr lleol. Y Cyngor sy'n gyfrifol am unrhyw wybodaeth bersonol a gesglir drwy'r wefan (ef yw'r "rheolydd data"). Rydym yn cadw cyn lleied o wybodaeth bersonol â phosibl.</span></p>
-    <h3 class="sub"><span class="en">When you submit an event</span><span class="cy">Pan fyddwch yn cyflwyno digwyddiad</span></h3>
-    <p><span class="en">We ask for your name, email and (optionally) phone number so a moderator can contact you about your event. Only our moderators (councillors and appointed volunteers) can see these details. They are never shown on the website, shared or used for anything else. They are deleted automatically 30 days after your event has taken place. If you send a photo, it's shown with your event once approved; hidden details in the photo file, such as where it was taken, are removed automatically.</span><span class="cy">Rydym yn gofyn am eich enw, e-bost a (dewisol) rhif ffôn er mwyn i gymedrolwr allu cysylltu â chi am eich digwyddiad. Dim ond ein cymedrolwyr (cynghorwyr a gwirfoddolwyr penodedig) all weld y manylion hyn. Nid ydynt byth yn cael eu dangos ar y wefan, eu rhannu na'u defnyddio i unrhyw beth arall. Cânt eu dileu yn awtomatig 30 diwrnod ar ôl i'ch digwyddiad gael ei gynnal. Os byddwch yn anfon llun, bydd yn cael ei ddangos gyda'ch digwyddiad unwaith y caiff ei gymeradwyo; mae manylion cudd yn y ffeil, fel ble y tynnwyd y llun, yn cael eu tynnu'n awtomatig.</span></p>
+    <h3 class="sub"><span class="en">When you send us an event or news</span><span class="cy">Pan fyddwch yn anfon digwyddiad neu newyddion atom</span></h3>
+    <p><span class="en">We ask for your name, email and (optionally) phone number so a moderator can contact you about what you've sent. Only our moderators (councillors and appointed volunteers) can see these details. They are never shown on the website, shared or used for anything else. They are deleted automatically 30 days after your event has taken place, or 30 days after your news has been dealt with. If you send a photo, it's shown with your event or news once approved; hidden details in the photo file, such as where it was taken, are removed automatically.</span><span class="cy">Rydym yn gofyn am eich enw, e-bost a (dewisol) rhif ffôn er mwyn i gymedrolwr allu cysylltu â chi am yr hyn rydych wedi'i anfon. Dim ond ein cymedrolwyr (cynghorwyr a gwirfoddolwyr penodedig) all weld y manylion hyn. Nid ydynt byth yn cael eu dangos ar y wefan, eu rhannu na'u defnyddio i unrhyw beth arall. Cânt eu dileu yn awtomatig 30 diwrnod ar ôl i'ch digwyddiad gael ei gynnal, neu 30 diwrnod ar ôl delio â'ch newyddion. Os byddwch yn anfon llun, bydd yn cael ei ddangos gyda'ch digwyddiad neu newyddion unwaith y caiff ei gymeradwyo; mae manylion cudd yn y ffeil, fel ble y tynnwyd y llun, yn cael eu tynnu'n awtomatig.</span></p>
     <h3 class="sub"><span class="en">Where it's stored</span><span class="cy">Ble mae'n cael ei gadw</span></h3>
     <p><span class="en">The website and its database are hosted by Cloudflare, with the database kept in the European Union. The form uses Cloudflare Turnstile to stop spam.</span><span class="cy">Mae'r wefan a'i chronfa ddata yn cael eu cynnal gan Cloudflare, gyda'r gronfa ddata yn yr Undeb Ewropeaidd. Mae'r ffurflen yn defnyddio Cloudflare Turnstile i atal sbam.</span></p>
     <h3 class="sub"><span class="en">Your rights</span><span class="cy">Eich hawliau</span></h3>

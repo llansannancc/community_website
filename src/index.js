@@ -216,6 +216,65 @@ async function submitEvent(request, env) {
   return json({ ok: true });
 }
 
+// Members of the public can send in news. It waits for a moderator, who can tidy it up before approving.
+function splitStory(text) {
+  // The first paragraph (up to about 280 characters) becomes the summary on the homepage,
+  // and the rest goes behind "Read more", so nothing is shown twice.
+  const paras = text.trim().split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+  const first = paras[0].replace(/\s+/g, " ");
+  if (first.length <= 280) return { summary: first, body: paras.slice(1).join("\n\n") };
+  const cut = first.slice(0, 280);
+  const stop = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("! "), cut.lastIndexOf("? "));
+  if (stop > 80) {
+    return { summary: cut.slice(0, stop + 1), body: [first.slice(stop + 2), ...paras.slice(1)].join("\n\n") };
+  }
+  // No sentence break: show the start, and the whole story behind "Read more"
+  return { summary: cut.slice(0, cut.lastIndexOf(" ")) + "…", body: paras.join("\n\n") };
+}
+
+async function submitNews(request, env) {
+  const b = await readJson(request);
+  if (b.website) return json({ ok: true }); // honeypot
+  if (!(await checkTurnstile(b.turnstile, request, env))) httpError(400, "Please complete the spam check and try again.");
+  if (!b.consent) httpError(400, "Please tick the box to agree to the privacy notice.");
+  const title_en = clean(b.title_en, 140, { required: true, label: "Headline" });
+  const story = clean(b.story_en, 5000, { required: true, label: "Your news" });
+  const title_cy = clean(b.title_cy, 140, { label: "Welsh headline" });
+  const story_cy = clean(b.story_cy, 5000, { label: "Welsh version" });
+  const contact_name = clean(b.contact_name, 120, { required: true, label: "Your name" });
+  const contact_email = clean(b.contact_email, 200, { required: true, label: "Your email" });
+  const contact_phone = clean(b.contact_phone, 40, { label: "Phone" });
+  if (!EMAIL.test(contact_email)) httpError(400, "Please give a valid email address.");
+  let image_id = env.PUBLIC_PHOTOS === "off" ? null : imageId(b.image_id);
+  let image_alt = clean(b.image_alt, 200, { label: "Photo description" });
+  if (image_id) {
+    const img = await env.DB.prepare("SELECT id FROM images WHERE id = ? AND source = 'public'").bind(image_id).first();
+    if (!img) { image_id = null; image_alt = null; }
+  }
+  const en = splitStory(story);
+  const cy = story_cy ? splitStory(story_cy) : { summary: null, body: null };
+
+  const r = await env.DB.prepare(
+    `INSERT INTO news (title_en, title_cy, summary_en, summary_cy, body_en, body_cy, category_en, category_cy,
+       image_id, image_alt, contact_name, contact_email, contact_phone, status, source)
+     VALUES (?, ?, ?, ?, ?, ?, 'Community', 'Cymuned', ?, ?, ?, ?, ?, 'pending', 'public')`
+  ).bind(title_en, title_cy, en.summary, cy.summary, en.body, cy.body, image_id, image_alt, contact_name, contact_email, contact_phone).run();
+  const id = r.meta.last_row_id;
+  await log(env, { label: `Public: ${contact_name} <${contact_email}>` }, "submitted", "news", id,
+    `News sent in by the public: "${title_en}"${image_id ? " (with a photo)" : ""}`);
+  await notifyModerators(env, {
+    subject: `News to approve: ${title_en}`,
+    lines: [
+      "Someone has sent in a news story for the website.",
+      `Headline: ${title_en}`,
+      `Sent by: ${contact_name} (${contact_email})`,
+      ...(image_id ? ["It includes a photo. Please check it before approving."] : []),
+    ],
+    link: "/admin/#queue",
+  });
+  return json({ ok: true });
+}
+
 // ---------- moderator API ----------
 // The three kinds of content moderators manage. They all follow the same approval rules.
 const KINDS = {
@@ -317,10 +376,10 @@ async function editItem(env, me, kind, id, b) {
 
 /** If this item has a photo sent in by the public, delete the photo now (used when rejecting or deleting). */
 async function removePublicPhoto(env, table, item) {
-  if (table !== "events" || !item.image_id) return false;
+  if ((table !== "events" && table !== "news") || !item.image_id) return false;
   const img = await env.DB.prepare("SELECT source FROM images WHERE id = ?").bind(item.image_id).first();
   if (!img || img.source !== "public") return false;
-  await env.DB.prepare("UPDATE events SET image_id = NULL, image_alt = NULL WHERE id = ?").bind(item.id).run();
+  await env.DB.prepare(`UPDATE ${table} SET image_id = NULL, image_alt = NULL WHERE id = ?`).bind(item.id).run();
   await env.DB.prepare("DELETE FROM images WHERE id = ?").bind(item.image_id).run();
   return true;
 }
@@ -368,7 +427,7 @@ async function reviewItem(env, me, kind, id, action, b) {
     if (!lead) httpError(403, "Only a lead moderator can delete items.");
     const sql = kind === "event"
       ? "UPDATE events SET status = 'deleted', contact_name = NULL, contact_email = NULL, contact_phone = NULL, image_id = NULL WHERE id = ?"
-      : kind === "news" ? "UPDATE news SET status = 'deleted', image_id = NULL WHERE id = ?"
+      : kind === "news" ? "UPDATE news SET status = 'deleted', image_id = NULL, contact_name = NULL, contact_email = NULL, contact_phone = NULL WHERE id = ?"
       : `UPDATE ${table} SET status = 'deleted' WHERE id = ?`;
     await removePublicPhoto(env, table, item);
     await env.DB.prepare(sql).bind(id).run();
@@ -507,11 +566,11 @@ async function uploadImage(request, env, me) {
   return json({ id });
 }
 
-// Members of the public can attach one photo to an event they submit. It isn't shown anywhere
-// until a moderator approves the event. Limited to a few uploads per hour from each connection.
+// Members of the public can attach one photo to an event or news they send in. It isn't shown anywhere
+// until a moderator approves it. Limited to a few uploads per hour from each connection.
 const PUBLIC_UPLOADS_PER_HOUR = 6;
 async function uploadPublicImage(request, env) {
-  if (env.PUBLIC_PHOTOS === "off") httpError(403, "Sending photos is switched off at the moment. You can still send your event without one.");
+  if (env.PUBLIC_PHOTOS === "off") httpError(403, "Sending photos is switched off at the moment. You can still send it without a photo.");
   const ip = request.headers.get("CF-Connecting-IP") || "local";
   const ipHash = await sha256hex(`llansannan:${ip}`);
   const since = new Date(Date.now() - 3600000).toISOString();
@@ -536,7 +595,9 @@ async function serveImage(request, env, id) {
   if (row.source === "public") {
     // A photo sent in by the public is only shown once a moderator has approved its event.
     // Until then only signed-in moderators can see it, even if someone has the link.
-    const live = await env.DB.prepare("SELECT 1 AS ok FROM events WHERE image_id = ? AND status = 'approved' LIMIT 1").bind(id).first();
+    const live = await env.DB.prepare(
+      "SELECT 1 AS ok FROM events WHERE image_id = ?1 AND status = 'approved' UNION ALL SELECT 1 FROM news WHERE image_id = ?1 AND status = 'approved' LIMIT 1"
+    ).bind(id).first();
     if (!live) {
       if (!(await currentModerator(request, env))) return fail(404, "Not found.");
       cache = "private, no-store";
@@ -645,10 +706,38 @@ async function ensureSchema(env) {
       if (!have.has(col)) await env.DB.prepare(`ALTER TABLE ${table} ADD COLUMN ${col} ${type}`).run();
     }
   }
+  // The first version required every news story to come from a moderator. Rebuild the table once
+  // so stories sent in by the public (with no moderator yet) can be saved. All existing stories are kept.
+  const newsCols = (await env.DB.prepare("PRAGMA table_info(news)").all()).results;
+  if (newsCols.find((c) => c.name === "submitted_by")?.notnull) {
+    const cols = NEWS_TABLE_COLUMNS.join(", ");
+    await env.DB.batch([
+      env.DB.prepare(NEWS_TABLE_SQL.replace("CREATE TABLE IF NOT EXISTS news", "CREATE TABLE news_rebuild")),
+      env.DB.prepare(`INSERT INTO news_rebuild (${cols}) SELECT ${cols} FROM news`),
+      env.DB.prepare("DROP TABLE news"),
+      env.DB.prepare("ALTER TABLE news_rebuild RENAME TO news"),
+      env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_news_status_pub ON news (status, published_at)"),
+    ]);
+  }
   schemaReady = true;
 }
+const NEWS_TABLE_COLUMNS = ["id", "title_en", "title_cy", "summary_en", "summary_cy", "body_en", "body_cy", "category_en", "category_cy",
+  "status", "submitted_by", "last_edited_by", "needs_other_than", "reviewed_by", "reviewed_at", "reject_reason", "published_at",
+  "created_at", "updated_at", "image_id", "image_alt", "source", "contact_name", "contact_email", "contact_phone"];
+const NEWS_TABLE_SQL = `CREATE TABLE IF NOT EXISTS news (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, title_en TEXT NOT NULL, title_cy TEXT, summary_en TEXT NOT NULL, summary_cy TEXT,
+  body_en TEXT NOT NULL DEFAULT '', body_cy TEXT, category_en TEXT NOT NULL DEFAULT 'Community', category_cy TEXT,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'deleted')),
+  submitted_by INTEGER REFERENCES moderators(id), last_edited_by INTEGER REFERENCES moderators(id),
+  needs_other_than INTEGER REFERENCES moderators(id), reviewed_by INTEGER REFERENCES moderators(id),
+  reviewed_at TEXT, reject_reason TEXT, published_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  image_id TEXT, image_alt TEXT, source TEXT NOT NULL DEFAULT 'moderator',
+  contact_name TEXT, contact_email TEXT, contact_phone TEXT)`;
 const NEW_COLUMNS = {
-  news: [["image_id", "TEXT"], ["image_alt", "TEXT"]],
+  news: [["image_id", "TEXT"], ["image_alt", "TEXT"], ["source", "TEXT NOT NULL DEFAULT 'moderator'"],
+         ["contact_name", "TEXT"], ["contact_email", "TEXT"], ["contact_phone", "TEXT"]],
   events: [["image_id", "TEXT"], ["image_alt", "TEXT"]],
   images: [["source", "TEXT"], ["ip_hash", "TEXT"]],
 };
@@ -684,7 +773,8 @@ export default {
       if (url.pathname === "/api/weekly" && request.method === "GET") return await publicWeekly(env);
       if (url.pathname.startsWith("/img/") && request.method === "GET") { await ensureSchema(env); return await serveImage(request, env, url.pathname.slice(5)); }
       if (url.pathname === "/api/events/submit" && request.method === "POST") return await submitEvent(request, env);
-      if (url.pathname === "/api/events/photo" && request.method === "POST") return await uploadPublicImage(request, env);
+      if ((url.pathname === "/api/events/photo" || url.pathname === "/api/photo") && request.method === "POST") return await uploadPublicImage(request, env);
+      if (url.pathname === "/api/news/submit" && request.method === "POST") return await submitNews(request, env);
 
       if (url.pathname.startsWith("/api/auth/")) return await handleAuth(request, env, url);
 
@@ -729,6 +819,13 @@ export default {
     ).bind(cutoff).run();
     if (r.meta.changes) {
       await log(env, { label: "System" }, "privacy_cleanup", "system", null, `Removed contact details from ${r.meta.changes} past event(s), as promised in the privacy notice`);
+    }
+    const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString();
+    const n = await env.DB.prepare(
+      "UPDATE news SET contact_name = NULL, contact_email = NULL, contact_phone = NULL WHERE COALESCE(reviewed_at, created_at) < ? AND status != 'pending' AND (contact_email IS NOT NULL OR contact_name IS NOT NULL OR contact_phone IS NOT NULL)"
+    ).bind(monthAgo).run();
+    if (n.meta.changes) {
+      await log(env, { label: "System" }, "privacy_cleanup", "system", null, `Removed contact details from ${n.meta.changes} news stories sent in by the public, 30 days after they were dealt with`);
     }
   },
 };
