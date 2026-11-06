@@ -31,6 +31,7 @@ function toEvent(r) {
     en: { t: esc(r.title_en), d: para(r.description_en), loc: esc(r.location_en), raw: r },
     cy: { t: esc(r.title_cy || r.title_en), d: para(r.description_cy || r.description_en), loc: esc(r.location_cy || r.location_en) },
     organiser: esc(r.organiser),
+    image: r.image_id ? { src: "/img/" + encodeURIComponent(r.image_id), alt: esc(r.image_alt || "") } : null,
   };
 }
 function toNews(r) {
@@ -156,7 +157,7 @@ function drawFullList() {
     return `<a class="list-row" href="#event-${e.id}">${dateBox(s)}<div class="ev-info">
       <h3>${both(e.en.t, e.cy.t)}</h3>
       <p>${both(t12(s,"en") + " – " + t12(en,"en"), t12(s,"cy") + " – " + t12(en,"cy"))} · ${both(e.en.loc, e.cy.loc)}</p>
-      <p>${both(e.en.d, e.cy.d)}</p></div></a>`;
+      <p>${both(e.en.d, e.cy.d)}</p></div>${e.image ? `<img class="list-thumb" src="${e.image.src}" alt="" loading="lazy">` : ""}</a>`;
   }).join("") : emptyMsg("No upcoming events yet.", "Dim digwyddiadau i ddod eto.");
 }
 
@@ -192,6 +193,7 @@ function renderDetail(id) {
   const s = new Date(e.start), en = new Date(e.end);
   $("detail").innerHTML = `
     <h2 class="title">${both(e.en.t, e.cy.t)}</h2>
+    ${e.image ? `<img class="event-photo" src="${e.image.src}" alt="${e.image.alt}">` : ""}
     <div class="detail-box">
       <div><strong>${both("Date", "Dyddiad")}</strong> ${longDate(s)}</div>
       <div><strong>${both("Time", "Amser")}</strong> ${both(t12(s,"en") + " to " + t12(en,"en"), t12(s,"cy") + " tan " + t12(en,"cy"))}</div>
@@ -265,6 +267,51 @@ async function prepareSubmit() {
   } catch (e) { /* the server still checks */ }
 }
 
+// Photo on the submission form: shrunk on the phone/computer first (max 1600px), which also removes hidden location details.
+async function shrinkPhoto(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => bad(new Error("That file couldn't be opened as a photo. / Methu agor y ffeil fel llun.")); i.src = url; });
+    const scale = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement("canvas");
+    c.width = Math.round(img.naturalWidth * scale); c.height = Math.round(img.naturalHeight * scale);
+    const ctx = c.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(img, 0, 0, c.width, c.height);
+    for (const q of [0.85, 0.75, 0.65, 0.5]) {
+      const blob = await new Promise((ok) => c.toBlob(ok, "image/jpeg", q));
+      if (blob && blob.size <= 900000) return blob;
+    }
+    throw new Error("That photo is too large. Please try another. / Mae'r llun yn rhy fawr.");
+  } finally { URL.revokeObjectURL(url); }
+}
+function setSubmitPhoto(id) {
+  const f = $("submit-form");
+  f.elements.image_id.value = id || "";
+  $("f-photo-preview").hidden = !id;
+  if (id) $("f-photo-preview").src = "/img/" + id;
+  $("f-photo-remove").hidden = !id;
+  $("f-alt-field").hidden = !id;
+  if (!id) f.elements.image_alt.value = "";
+  $("f-photo-pick").querySelectorAll("span[data-alt]").forEach((sp) => {
+    if (!sp.dataset.orig) sp.dataset.orig = sp.textContent;
+    sp.textContent = id ? sp.dataset.alt : sp.dataset.orig;
+  });
+}
+$("f-photo").addEventListener("change", async (e) => {
+  const file = e.target.files[0]; e.target.value = "";
+  if (!file) return;
+  const status = $("f-photo-status");
+  status.textContent = "…";
+  try {
+    const blob = await shrinkPhoto(file);
+    const res = await fetch("/api/events/photo", { method: "POST", headers: { "content-type": "image/jpeg" }, body: blob });
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(out.error || "Upload failed");
+    setSubmitPhoto(out.id);
+    status.textContent = "";
+  } catch (err) { status.textContent = err.message; }
+});
+$("f-photo-remove").addEventListener("click", () => setSubmitPhoto(""));
+
 $("submit-form").addEventListener("submit", async (ev) => {
   ev.preventDefault();
   const f = ev.target, msg = $("submit-msg"), btn = f.querySelector("button[type=submit]");
@@ -274,6 +321,7 @@ $("submit-form").addEventListener("submit", async (ev) => {
     title_en: v("title_en"), title_cy: v("title_cy"),
     description_en: v("description_en"), description_cy: v("description_cy"),
     location_en: v("location_en"), organiser: v("organiser"),
+    image_id: v("image_id"), image_alt: v("image_alt"),
     start_at: `${date}T${v("start")}`, end_at: v("end") ? `${date}T${v("end")}` : `${date}T${v("start")}`,
     contact_name: v("contact_name"), contact_email: v("contact_email"), contact_phone: v("contact_phone"),
     consent: f.elements.consent.checked, website: v("website"), turnstile: turnstileToken,
@@ -291,7 +339,7 @@ $("submit-form").addEventListener("submit", async (ev) => {
     if (window.turnstile && typeof window.turnstile.reset === "function") { window.turnstile.reset(); turnstileToken = ""; }
   } finally { btn.disabled = false; }
 });
-$("submit-again").addEventListener("click", () => { $("submit-form").reset(); $("submit-form").hidden = false; $("submit-done").hidden = true; $("submit-msg").textContent = ""; });
+$("submit-again").addEventListener("click", () => { $("submit-form").reset(); setSubmitPhoto(""); $("submit-form").hidden = false; $("submit-done").hidden = true; $("submit-msg").textContent = ""; });
 
 // ---------- start ----------
 async function load() {

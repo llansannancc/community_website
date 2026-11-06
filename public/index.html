@@ -268,6 +268,13 @@
   .weekly-item { padding: 12px 0; border-bottom: 1px solid var(--line); }
   .weekly-item .meta { color: var(--muted); font-size: 0.95rem; margin-top: 2px; }
   .weekly-item p { margin: 6px 0 0; }
+  .photo-box { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .photo-box img { width: 160px; height: 110px; object-fit: cover; border-radius: 4px; border: 1px solid var(--line); }
+  .photo-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .photo-actions .btn { min-height: 46px; padding: 0 16px; display: inline-flex; align-items: center; cursor: pointer; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .event-photo { width: 100%; max-height: 420px; object-fit: cover; border-radius: 6px; margin-bottom: 16px; display: block; background: var(--blue-soft); }
+  .list-thumb { flex-shrink: 0; width: 96px; height: 72px; object-fit: cover; border-radius: 4px; margin-left: auto; align-self: center; }
   /* Submit an event form */
   .form { max-width: 680px; }
   .form fieldset { border: none; padding: 0; margin: 0 0 22px; }
@@ -557,6 +564,20 @@
         <textarea id="f-desc-cy" name="description_cy" maxlength="2000"></textarea></div>
       <div class="field"><label for="f-org"><span class="en">Organised by</span><span class="cy">Trefnwyd gan</span> <span class="hint"><span class="en">Club, group or person — shown on the website</span><span class="cy">Clwb, grŵp neu berson — yn cael ei ddangos ar y wefan</span></span></label>
         <input id="f-org" name="organiser" maxlength="120"></div>
+      <div class="field"><label for="f-photo"><span class="en">Photo or poster</span><span class="cy">Llun neu boster</span> <span class="hint"><span class="en">Optional. Shown with your event once it's approved.</span><span class="cy">Dewisol. Yn cael ei ddangos gyda'ch digwyddiad unwaith y caiff ei gymeradwyo.</span></span></label>
+        <input type="hidden" name="image_id">
+        <div class="photo-box">
+          <img id="f-photo-preview" alt="" hidden>
+          <div class="photo-actions">
+            <label class="btn btn-outline" for="f-photo" id="f-photo-pick"><span class="en" data-alt="Change photo">Choose a photo</span><span class="cy" data-alt="Newid llun">Dewis llun</span></label>
+            <input id="f-photo" type="file" accept="image/*" class="visually-hidden">
+            <button class="btn btn-outline" type="button" id="f-photo-remove" hidden><span class="en">Remove</span><span class="cy">Tynnu</span></button>
+            <span class="hint" id="f-photo-status" role="status"></span>
+          </div>
+        </div>
+      </div>
+      <div class="field" id="f-alt-field" hidden><label for="f-alt"><span class="en">What does the photo show?</span><span class="cy">Beth sydd yn y llun?</span> <span class="hint"><span class="en">A few words for people who can't see it</span><span class="cy">Ychydig eiriau i bobl sy'n methu ei weld</span></span></label>
+        <input id="f-alt" name="image_alt" maxlength="200"></div>
     </fieldset>
 
     <fieldset>
@@ -587,7 +608,7 @@
   <div class="form">
     <p><span class="en">This community website is supported by Llansannan Community Council (Cyngor Cymuned Llansannan) and run by councillors and local volunteers. The Council is responsible for any personal information collected through the website (it is the "data controller"). We keep personal information to a minimum.</span><span class="cy">Cefnogir y wefan gymunedol hon gan Gyngor Cymuned Llansannan ac fe'i rhedir gan gynghorwyr a gwirfoddolwyr lleol. Y Cyngor sy'n gyfrifol am unrhyw wybodaeth bersonol a gesglir drwy'r wefan (ef yw'r "rheolydd data"). Rydym yn cadw cyn lleied o wybodaeth bersonol â phosibl.</span></p>
     <h3 class="sub"><span class="en">When you submit an event</span><span class="cy">Pan fyddwch yn cyflwyno digwyddiad</span></h3>
-    <p><span class="en">We ask for your name, email and (optionally) phone number so a moderator can contact you about your event. Only our moderators (councillors and appointed volunteers) can see these details. They are never shown on the website, shared or used for anything else. They are deleted automatically 30 days after your event has taken place.</span><span class="cy">Rydym yn gofyn am eich enw, e-bost a (dewisol) rhif ffôn er mwyn i gymedrolwr allu cysylltu â chi am eich digwyddiad. Dim ond ein cymedrolwyr (cynghorwyr a gwirfoddolwyr penodedig) all weld y manylion hyn. Nid ydynt byth yn cael eu dangos ar y wefan, eu rhannu na'u defnyddio i unrhyw beth arall. Cânt eu dileu yn awtomatig 30 diwrnod ar ôl i'ch digwyddiad gael ei gynnal.</span></p>
+    <p><span class="en">We ask for your name, email and (optionally) phone number so a moderator can contact you about your event. Only our moderators (councillors and appointed volunteers) can see these details. They are never shown on the website, shared or used for anything else. They are deleted automatically 30 days after your event has taken place. If you send a photo, it's shown with your event once approved; hidden details in the photo file, such as where it was taken, are removed automatically.</span><span class="cy">Rydym yn gofyn am eich enw, e-bost a (dewisol) rhif ffôn er mwyn i gymedrolwr allu cysylltu â chi am eich digwyddiad. Dim ond ein cymedrolwyr (cynghorwyr a gwirfoddolwyr penodedig) all weld y manylion hyn. Nid ydynt byth yn cael eu dangos ar y wefan, eu rhannu na'u defnyddio i unrhyw beth arall. Cânt eu dileu yn awtomatig 30 diwrnod ar ôl i'ch digwyddiad gael ei gynnal. Os byddwch yn anfon llun, bydd yn cael ei ddangos gyda'ch digwyddiad unwaith y caiff ei gymeradwyo; mae manylion cudd yn y ffeil, fel ble y tynnwyd y llun, yn cael eu tynnu'n awtomatig.</span></p>
     <h3 class="sub"><span class="en">Where it's stored</span><span class="cy">Ble mae'n cael ei gadw</span></h3>
     <p><span class="en">The website and its database are hosted by Cloudflare, with the database kept in the European Union. The form uses Cloudflare Turnstile to stop spam.</span><span class="cy">Mae'r wefan a'i chronfa ddata yn cael eu cynnal gan Cloudflare, gyda'r gronfa ddata yn yr Undeb Ewropeaidd. Mae'r ffurflen yn defnyddio Cloudflare Turnstile i atal sbam.</span></p>
     <h3 class="sub"><span class="en">Your rights</span><span class="cy">Eich hawliau</span></h3>

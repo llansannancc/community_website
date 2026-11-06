@@ -59,7 +59,7 @@ function diff(before, after, fields) {
 }
 
 // ---------- field definitions ----------
-const EVENT_FIELDS = ["title_en", "title_cy", "description_en", "description_cy", "location_en", "location_cy", "start_at", "end_at", "organiser", "contact_name", "contact_email", "contact_phone"];
+const EVENT_FIELDS = ["title_en", "title_cy", "description_en", "description_cy", "location_en", "location_cy", "start_at", "end_at", "organiser", "contact_name", "contact_email", "contact_phone", "image_id", "image_alt"];
 const NEWS_FIELDS = ["title_en", "title_cy", "summary_en", "summary_cy", "body_en", "body_cy", "category_en", "category_cy", "image_id", "image_alt"];
 const WEEKLY_FIELDS = ["title_en", "title_cy", "description_en", "description_cy", "location_en", "location_cy", "organiser",
   "day", "start_time", "end_time", "week_of_month", "starts_on", "ends_on"];
@@ -78,6 +78,8 @@ function eventInput(b, { isPublic }) {
     contact_name: clean(b.contact_name, 120, { required: isPublic, label: "Your name" }),
     contact_email: clean(b.contact_email, 200, { required: isPublic, label: "Your email" }),
     contact_phone: clean(b.contact_phone, 40, { label: "Phone" }),
+    image_id: imageId(b.image_id),
+    image_alt: clean(b.image_alt, 200, { label: "Photo description" }),
   };
   if (!DT.test(e.start_at)) httpError(400, "Please give a valid start date and time.");
   if (!e.end_at) e.end_at = e.start_at;
@@ -156,7 +158,7 @@ async function checkTurnstile(token, request, env) {
 }
 
 // ---------- public API ----------
-const PUBLIC_EVENT_COLS = "id, title_en, title_cy, description_en, description_cy, location_en, location_cy, start_at, end_at, organiser";
+const PUBLIC_EVENT_COLS = "id, title_en, title_cy, description_en, description_cy, location_en, location_cy, start_at, end_at, organiser, image_id, image_alt";
 
 async function publicEvents(env) {
   const { results } = await env.DB.prepare(
@@ -187,13 +189,17 @@ async function submitEvent(request, env) {
   if (!(await checkTurnstile(b.turnstile, request, env))) httpError(400, "Please complete the spam check and try again.");
   if (!b.consent) httpError(400, "Please tick the box to agree to the privacy notice.");
   const e = eventInput(b, { isPublic: true });
+  if (e.image_id) {
+    const img = await env.DB.prepare("SELECT id FROM images WHERE id = ? AND source = 'public'").bind(e.image_id).first();
+    if (!img) { e.image_id = null; e.image_alt = null; }
+  }
 
   const r = await env.DB.prepare(
     `INSERT INTO events (${EVENT_FIELDS.join(", ")}, status, source) VALUES (${EVENT_FIELDS.map(() => "?").join(", ")}, 'pending', 'public')`
   ).bind(...EVENT_FIELDS.map((f) => e[f])).run();
   const id = r.meta.last_row_id;
 
-  await log(env, { label: `Public: ${e.contact_name} <${e.contact_email}>` }, "submitted", "event", id, `Event submitted by the public: "${e.title_en}" on ${e.start_at.replace("T", " ")}`);
+  await log(env, { label: `Public: ${e.contact_name} <${e.contact_email}>` }, "submitted", "event", id, `Event submitted by the public: "${e.title_en}" on ${e.start_at.replace("T", " ")}${e.image_id ? " (with a photo)" : ""}`);
   await notifyModerators(env, {
     subject: `New event to approve: ${e.title_en}`,
     lines: [
@@ -202,6 +208,7 @@ async function submitEvent(request, env) {
       `When: ${e.start_at.replace("T", " at ")}`,
       `Where: ${e.location_en}`,
       `Submitted by: ${e.contact_name} (${e.contact_email})`,
+      ...(e.image_id ? ["It includes a photo. Please check it before approving."] : []),
     ],
     link: "/admin/#queue",
   });
@@ -348,7 +355,8 @@ async function reviewItem(env, me, kind, id, action, b) {
   if (action === "delete") {
     if (!lead) httpError(403, "Only a lead moderator can delete items.");
     const sql = kind === "event"
-      ? "UPDATE events SET status = 'deleted', contact_name = NULL, contact_email = NULL, contact_phone = NULL WHERE id = ?"
+      ? "UPDATE events SET status = 'deleted', contact_name = NULL, contact_email = NULL, contact_phone = NULL, image_id = NULL WHERE id = ?"
+      : kind === "news" ? "UPDATE news SET status = 'deleted', image_id = NULL WHERE id = ?"
       : `UPDATE ${table} SET status = 'deleted' WHERE id = ?`;
     await env.DB.prepare(sql).bind(id).run();
     await log(env, me, "deleted", kind, id, `Deleted ${label} "${item.title_en}"`);
@@ -438,16 +446,72 @@ function fromBase64(b64) {
   return out;
 }
 
-async function uploadImage(request, env, me) {
+/**
+ * Removes hidden information from a JPEG (camera details, and the GPS location where it was taken),
+ * keeping only the picture itself. Returns null if the file isn't a valid JPEG.
+ */
+function stripJpegMetadata(bytes) {
+  if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) return null;
+  const out = [bytes.subarray(0, 2)];
+  let i = 2;
+  while (i + 4 <= bytes.length) {
+    if (bytes[i] !== 0xff) return null;
+    const marker = bytes[i + 1];
+    if (marker === 0xd9) { out.push(bytes.subarray(i, i + 2)); i += 2; break; }
+    const len = (bytes[i + 2] << 8) | bytes[i + 3];
+    if (len < 2 || i + 2 + len > bytes.length) return null;
+    const isMetadata = (marker >= 0xe1 && marker <= 0xef) || marker === 0xfe; // APP1–APP15 and comments
+    if (!isMetadata) out.push(bytes.subarray(i, i + 2 + len));
+    i += 2 + len;
+    if (marker === 0xda) { out.push(bytes.subarray(i)); i = bytes.length; break; } // picture data follows
+  }
+  const total = out.reduce((n, a) => n + a.length, 0);
+  const result = new Uint8Array(total);
+  let o = 0;
+  for (const a of out) { result.set(a, o); o += a.length; }
+  return result;
+}
+
+async function readImage(request, allowed) {
   const type = (request.headers.get("content-type") || "").split(";")[0].trim();
-  if (!IMAGE_TYPES.includes(type)) httpError(400, "Please choose a JPEG or PNG photo.");
-  const bytes = new Uint8Array(await request.arrayBuffer());
+  if (!allowed.includes(type)) httpError(400, allowed.length === 1 ? "Please choose a JPEG photo." : "Please choose a JPEG or PNG photo.");
+  let bytes = new Uint8Array(await request.arrayBuffer());
   if (!bytes.length) httpError(400, "The photo was empty.");
   if (bytes.length > MAX_IMAGE_BYTES) httpError(400, "That photo is too large. Please try a smaller one.");
-  const id = [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, "0")).join("");
-  await env.DB.prepare("INSERT INTO images (id, mime, data, size, uploaded_by) VALUES (?, ?, ?, ?, ?)")
+  if (type === "image/jpeg") {
+    bytes = stripJpegMetadata(bytes);
+    if (!bytes) httpError(400, "That file isn't a photo we can use. Please choose a JPEG.");
+  }
+  return { type, bytes };
+}
+const newImageId = () => [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, "0")).join("");
+
+async function uploadImage(request, env, me) {
+  const { type, bytes } = await readImage(request, IMAGE_TYPES);
+  const id = newImageId();
+  await env.DB.prepare("INSERT INTO images (id, mime, data, size, uploaded_by, source) VALUES (?, ?, ?, ?, ?, 'moderator')")
     .bind(id, type, toBase64(bytes), bytes.length, me.id).run();
   return json({ id });
+}
+
+// Members of the public can attach one photo to an event they submit. It isn't shown anywhere
+// until a moderator approves the event. Limited to a few uploads per hour from each connection.
+const PUBLIC_UPLOADS_PER_HOUR = 6;
+async function uploadPublicImage(request, env) {
+  const ip = request.headers.get("CF-Connecting-IP") || "local";
+  const ipHash = await sha256hex(`llansannan:${ip}`);
+  const since = new Date(Date.now() - 3600000).toISOString();
+  const recent = await env.DB.prepare("SELECT COUNT(*) AS n FROM images WHERE ip_hash = ? AND created_at > ?").bind(ipHash, since).first();
+  if (recent.n >= PUBLIC_UPLOADS_PER_HOUR) httpError(429, "You've uploaded several photos recently. Please wait an hour and try again.");
+  const { type, bytes } = await readImage(request, ["image/jpeg"]);
+  const id = newImageId();
+  await env.DB.prepare("INSERT INTO images (id, mime, data, size, source, ip_hash) VALUES (?, ?, ?, ?, 'public', ?)")
+    .bind(id, type, toBase64(bytes), bytes.length, ipHash).run();
+  return json({ id });
+}
+async function sha256hex(text) {
+  const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 async function serveImage(env, id) {
@@ -550,13 +614,20 @@ async function ensureSchema(env) {
   if (schemaReady) return;
   await env.DB.batch(SCHEMA_UPDATES.map((sql) => env.DB.prepare(sql)));
   // New columns on existing tables (SQLite can't say "IF NOT EXISTS" for columns)
-  const { results } = await env.DB.prepare("PRAGMA table_info(news)").all();
-  const have = new Set(results.map((c) => c.name));
-  for (const [col, type] of [["image_id", "TEXT"], ["image_alt", "TEXT"]]) {
-    if (!have.has(col)) await env.DB.prepare(`ALTER TABLE news ADD COLUMN ${col} ${type}`).run();
+  for (const [table, cols] of Object.entries(NEW_COLUMNS)) {
+    const { results } = await env.DB.prepare(`PRAGMA table_info(${table})`).all();
+    const have = new Set(results.map((c) => c.name));
+    for (const [col, type] of cols) {
+      if (!have.has(col)) await env.DB.prepare(`ALTER TABLE ${table} ADD COLUMN ${col} ${type}`).run();
+    }
   }
   schemaReady = true;
 }
+const NEW_COLUMNS = {
+  news: [["image_id", "TEXT"], ["image_alt", "TEXT"]],
+  events: [["image_id", "TEXT"], ["image_alt", "TEXT"]],
+  images: [["source", "TEXT"], ["ip_hash", "TEXT"]],
+};
 const SCHEMA_UPDATES = [
   `CREATE TABLE IF NOT EXISTS sessions (id INTEGER PRIMARY KEY AUTOINCREMENT, token_hash TEXT NOT NULL UNIQUE,
      moderator_id INTEGER NOT NULL REFERENCES moderators(id), created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
@@ -589,6 +660,7 @@ export default {
       if (url.pathname === "/api/weekly" && request.method === "GET") return await publicWeekly(env);
       if (url.pathname.startsWith("/img/") && request.method === "GET") { await ensureSchema(env); return await serveImage(env, url.pathname.slice(5)); }
       if (url.pathname === "/api/events/submit" && request.method === "POST") return await submitEvent(request, env);
+      if (url.pathname === "/api/events/photo" && request.method === "POST") return await uploadPublicImage(request, env);
 
       if (url.pathname.startsWith("/api/auth/")) return await handleAuth(request, env, url);
 
@@ -616,6 +688,17 @@ export default {
 
   // Runs once a day: removes private contact details 30 days after an event has finished.
   async scheduled(controller, env) {
+    await ensureSchema(env);
+    // Photos uploaded but never attached to anything (e.g. a form that was never sent), after 2 days
+    const old = new Date(Date.now() - 2 * 86400000).toISOString();
+    const gone = await env.DB.prepare(
+      `DELETE FROM images WHERE created_at < ?
+         AND id NOT IN (SELECT image_id FROM events WHERE image_id IS NOT NULL)
+         AND id NOT IN (SELECT image_id FROM news WHERE image_id IS NOT NULL)`
+    ).bind(old).run();
+    if (gone.meta.changes) {
+      await log(env, { label: "System" }, "photo_cleanup", "system", null, `Removed ${gone.meta.changes} unused photo(s)`);
+    }
     const cutoff = ukNow(-30);
     const r = await env.DB.prepare(
       "UPDATE events SET contact_name = NULL, contact_email = NULL, contact_phone = NULL WHERE end_at < ? AND (contact_email IS NOT NULL OR contact_phone IS NOT NULL OR contact_name IS NOT NULL)"

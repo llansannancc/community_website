@@ -96,6 +96,7 @@ function cardHTML(kind, it) {
        ${it.description_en ? `<div class="desc">${esc(it.description_en)}</div>` : ""}`
     : isEvent
     ? `<div class="when">${when(it.start_at, it.end_at)}</div><div class="meta">📍 ${esc(it.location_en)}${it.organiser ? ` · Organised by ${esc(it.organiser)}` : ""}</div>
+       ${it.image_id ? `<img class="card-photo" src="/img/${esc(it.image_id)}" alt="${esc(it.image_alt || "")}" loading="lazy">${it.source === "public" && it.status === "pending" ? `<div class="note info">Photo sent in by the public. Please check it's suitable before approving.</div>` : ""}` : ""}
        ${it.description_en ? `<div class="desc">${esc(it.description_en)}</div>` : ""}`
     : `<div class="meta">${esc(it.category_en)}${it.published_at ? ` · published ${ago(it.published_at)}` : ""}</div>
        ${it.image_id ? `<img class="card-photo" src="/img/${esc(it.image_id)}" alt="${esc(it.image_alt || "")}" loading="lazy">` : ""}
@@ -176,10 +177,12 @@ async function openEventForm(id) {
     fillForm(f, it);
     f.elements.id.value = it.id;
     f.elements.date.value = it.start_at.slice(0, 10); f.elements.start.value = it.start_at.slice(11); f.elements.end.value = it.end_at.slice(11);
+    showPhoto("ev", it.image_id, it.image_alt);
     $("ev-form-title").textContent = "Edit event";
     $("ev-form-intro").textContent = it.status === "approved" && !lead ? "This event is live. If you save changes, it will come off the website until another moderator approves it." : "";
     $("ev-contact").open = !!(it.contact_email || it.contact_name);
   } else {
+    showPhoto("ev", "", "");
     $("ev-form-title").textContent = "Add an event";
     $("ev-form-intro").textContent = lead ? "As a lead moderator, your event goes live as soon as you save it." : "Once saved, another moderator needs to approve your event before it goes live.";
     $("ev-contact").open = false;
@@ -198,7 +201,7 @@ $("ev-form").addEventListener("submit", async (e) => {
   } catch (err) { msg.className = "msg bad"; msg.textContent = err.message; }
 });
 
-// ---------- news photos ----------
+// ---------- photos (news and events) ----------
 // Shrinks the photo in the browser (max 1600px wide/high, JPEG) so it uploads quickly and fits the database.
 async function shrinkPhoto(file) {
   const url = URL.createObjectURL(file);
@@ -215,33 +218,36 @@ async function shrinkPhoto(file) {
     throw new Error("That photo is too large even after shrinking. Please try another.");
   } finally { URL.revokeObjectURL(url); }
 }
-function showPhoto(id, alt) {
-  const f = $("nw-form");
+// A photo field: prefix "nw" (news form) or "ev" (event form)
+function showPhoto(prefix, id, alt) {
+  const f = $(`${prefix}-form`);
   f.elements.image_id.value = id || "";
-  $("nw-photo-preview").hidden = !id;
-  if (id) $("nw-photo-preview").src = `/img/${id}`;
-  $("nw-photo-remove").hidden = !id;
-  $("nw-alt-field").hidden = !id;
-  $("nw-photo-pick").textContent = id ? "Change photo" : "Choose a photo";
+  $(`${prefix}-photo-preview`).hidden = !id;
+  if (id) $(`${prefix}-photo-preview`).src = `/img/${id}`;
+  $(`${prefix}-photo-remove`).hidden = !id;
+  $(`${prefix}-alt-field`).hidden = !id;
+  $(`${prefix}-photo-pick`).textContent = id ? "Change photo" : "Choose a photo";
   if (alt !== undefined) f.elements.image_alt.value = alt || "";
-  $("nw-photo-status").textContent = "";
+  $(`${prefix}-photo-status`).textContent = "";
 }
-$("nw-photo-file").addEventListener("change", async (e) => {
-  const file = e.target.files[0]; e.target.value = "";
-  if (!file) return;
-  const status = $("nw-photo-status");
-  status.textContent = "Preparing photo…";
-  try {
-    const blob = await shrinkPhoto(file);
-    status.textContent = "Uploading…";
-    const res = await fetch("/api/admin/images", { method: "POST", headers: { "content-type": "image/jpeg", ...(devAs ? { "x-dev-user": devAs } : {}) }, body: blob });
-    const out = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(out.error || "Upload failed");
-    showPhoto(out.id);
-    $("nw-form").elements.image_alt.focus();
-  } catch (err) { status.textContent = err.message; }
-});
-$("nw-photo-remove").onclick = () => showPhoto("", "");
+for (const prefix of ["nw", "ev"]) {
+  $(`${prefix}-photo-file`).addEventListener("change", async (e) => {
+    const file = e.target.files[0]; e.target.value = "";
+    if (!file) return;
+    const status = $(`${prefix}-photo-status`);
+    status.textContent = "Preparing photo…";
+    try {
+      const blob = await shrinkPhoto(file);
+      status.textContent = "Uploading…";
+      const res = await fetch("/api/admin/images", { method: "POST", headers: { "content-type": "image/jpeg", ...(devAs ? { "x-dev-user": devAs } : {}) }, body: blob });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(out.error || "Upload failed");
+      showPhoto(prefix, out.id);
+      $(`${prefix}-form`).elements.image_alt.focus();
+    } catch (err) { status.textContent = err.message; }
+  });
+  $(`${prefix}-photo-remove`).onclick = () => showPhoto(prefix, "", "");
+}
 
 async function openNewsForm(id) {
   const f = $("nw-form"); f.reset(); f.elements.id.value = ""; $("nw-msg").textContent = "";
@@ -251,11 +257,11 @@ async function openNewsForm(id) {
     const it = items.find((x) => x.id === id);
     if (!it) { toast("That post couldn't be found."); location.hash = "#news"; return; }
     fillForm(f, it); f.elements.id.value = it.id;
-    showPhoto(it.image_id, it.image_alt);
+    showPhoto("nw", it.image_id, it.image_alt);
     $("nw-form-title").textContent = "Edit news post";
     $("nw-form-intro").textContent = it.status === "approved" && !lead ? "This post is live. If you save changes, it will come off the website until another moderator approves it." : "";
   } else {
-    showPhoto("", "");
+    showPhoto("nw", "", "");
     $("nw-form-title").textContent = "Add a news post";
     $("nw-form-intro").textContent = lead ? "As a lead moderator, your post goes live as soon as you save it." : "Once saved, another moderator needs to approve your post before it goes live.";
   }
