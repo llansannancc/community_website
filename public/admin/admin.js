@@ -296,7 +296,7 @@ async function route() {
 window.addEventListener("hashchange", route);
 
 const SIGNIN_ERRORS = {
-  "not-moderator": "That GitHub account isn't on the moderator list. Make sure you're using the GitHub account with the email address the lead moderators added you with, or ask a lead to add you.",
+  "not-moderator": "That GitHub account isn't on the moderator list. Choose the GitHub account that has the email address the lead moderators added you with.",
   "no-email": "Your GitHub account doesn't have a verified email address. Verify your email on GitHub, then try again.",
   "cancelled": "Sign-in was cancelled.",
   "expired": "That sign-in took too long or was interrupted. Please try again.",
@@ -306,8 +306,15 @@ const SIGNIN_ERRORS = {
 function showSignIn() {
   $("who").innerHTML = `<a href="/">Back to the website</a>`;
   $("signin").hidden = false;
-  const err = new URLSearchParams(location.search).get("error");
-  if (err) { $("signin-error").textContent = SIGNIN_ERRORS[err] || "Sign-in didn't work. Please try again."; $("signin-error").hidden = false; }
+  const params = new URLSearchParams(location.search);
+  const err = params.get("error");
+  if (err) {
+    const gh = params.get("gh");
+    $("signin-error").textContent = (gh ? `You signed in to GitHub as @${gh}. ` : "") + (SIGNIN_ERRORS[err] || "Sign-in didn't work. Please try again.");
+    $("signin-error").hidden = false;
+    $("gh-btn-label").textContent = "Try a different GitHub account";
+    $("gh-help").hidden = false;
+  }
 }
 
 async function signOut() {

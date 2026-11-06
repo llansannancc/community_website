@@ -68,6 +68,9 @@ export function startGithubSignIn(request, env) {
   url.searchParams.set("scope", "user:email");
   url.searchParams.set("state", state);
   url.searchParams.set("allow_signup", "true");
+  // Always show GitHub's account picker, so people can choose which GitHub account to use
+  // (and aren't stuck with the wrong one after a failed attempt).
+  url.searchParams.set("prompt", "select_account");
   return new Response(null, {
     status: 302,
     headers: { Location: url.toString(), "Set-Cookie": cookie(request, STATE_COOKIE, state, 600) },

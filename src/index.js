@@ -428,7 +428,8 @@ async function handleAuth(request, env, url) {
         await log(env, { label: `GitHub user @${out.login}` }, "sign_in_refused", "moderator", null,
           `@${out.login} tried to sign in but none of their GitHub email addresses is on the moderator list`);
       }
-      headers.set("Location", `${origin}/admin/?error=${out.error}`);
+      const who_ = out.login ? `&gh=${encodeURIComponent(out.login)}` : "";
+      headers.set("Location", `${origin}/admin/?error=${out.error}${who_}`);
       return new Response(null, { status: 302, headers });
     }
     const m = out.moderator;

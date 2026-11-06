@@ -23,6 +23,7 @@ ok(r.status === 401, "not signed in → refused");
 
 let s = await signIn("lead1@example.com");
 ok(s.toGithub.searchParams.get("scope") === "user:email", "asks GitHub only for email addresses");
+ok(s.toGithub.searchParams.get("prompt") === "select_account", "always shows GitHub's account picker");
 ok(s.stateCookie && /HttpOnly/i.test(s.start.headers.getSetCookie().join()), "sign-in is protected with a one-time state value");
 ok(s.location.endsWith("/admin/#queue") && s.session, "a lead signs in with GitHub and lands on the moderator area");
 const lead = s.session;
@@ -30,7 +31,7 @@ r = await me(lead);
 ok(r.data.me?.email === "lead1@example.com" && r.data.me.role === "lead", "matched to the right moderator (by a verified, secondary GitHub email, any capitals)");
 
 s = await signIn("stranger@example.com");
-ok(s.location.includes("error=not-moderator") && !s.session, "a GitHub user who isn't a moderator is refused");
+ok(s.location.includes("error=not-moderator") && s.location.includes("gh=stranger") && !s.session, "a GitHub user who isn't a moderator is refused, and told which account they used");
 s = await signIn("unverified@example.com");
 ok(s.location.includes("error=no-email") && !s.session, "unverified GitHub emails don't count");
 s = await signIn("lead1@example.com", { tamperState: true });
