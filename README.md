@@ -31,19 +31,18 @@ Moderators sign in at **/admin** with **Sign in with GitHub**. The site checks t
 | File | What it is |
 |---|---|
 | `public/index.html` | The website: layout, text and styles |
-| `public/js/site.js` | Loads events and news; **weekly activities are listed at the top** |
+| `public/js/site.js` | Loads events, news and regular activities and draws the pages |
 | `public/admin/` | The moderator area |
 | `src/index.js` | The server: every rule above lives here |
 | `src/auth.js` | Sign in with GitHub, and sessions |
 | `src/email.js` | Notification emails |
-| `migrations/` | Database tables |
+| `migrations/` | Database tables (the site also creates any missing newer tables by itself) |
 | `wrangler.jsonc` | Cloudflare settings |
 
 ## Common changes
 
 - **Text on the pages** (history, local services, the hall and so on): edit `public/index.html`. Each piece of text has an English and a Welsh version side by side: `<span class="en">…</span><span class="cy">…</span>`.
-- **Weekly activities:** edit the `regular` list at the top of `public/js/site.js`.
-- **Events and news:** don't edit files. Use the moderator area.
+- **Events, news and regular activities** (weekly classes, monthly coffee mornings): don't edit files. Use the moderator area: **Events**, **News** and **Regular**. They all follow the same approval rules.
 
 Push the changes to GitHub. If automatic builds are connected, the site updates within a minute; otherwise run `npm run deploy`.
 

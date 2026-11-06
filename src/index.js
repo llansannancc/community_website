@@ -61,6 +61,8 @@ function diff(before, after, fields) {
 // ---------- field definitions ----------
 const EVENT_FIELDS = ["title_en", "title_cy", "description_en", "description_cy", "location_en", "location_cy", "start_at", "end_at", "organiser", "contact_name", "contact_email", "contact_phone"];
 const NEWS_FIELDS = ["title_en", "title_cy", "summary_en", "summary_cy", "body_en", "body_cy", "category_en", "category_cy"];
+const WEEKLY_FIELDS = ["title_en", "title_cy", "description_en", "description_cy", "location_en", "location_cy", "organiser",
+  "day", "start_time", "end_time", "week_of_month", "starts_on", "ends_on"];
 
 function eventInput(b, { isPublic }) {
   const e = {
@@ -84,6 +86,35 @@ function eventInput(b, { isPublic }) {
   if (e.contact_email && !EMAIL.test(e.contact_email)) httpError(400, "Please give a valid email address.");
   if (isPublic && e.start_at < ukNow().slice(0, 10)) httpError(400, "The event date is in the past.");
   return e;
+}
+
+const TIME = /^\d{2}:\d{2}$/;
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+function weeklyInput(b) {
+  const w = {
+    title_en: clean(b.title_en, 120, { required: true, label: "Name" }),
+    title_cy: clean(b.title_cy, 120, { label: "Welsh name" }),
+    description_en: clean(b.description_en, 1000, { label: "Description" }) || "",
+    description_cy: clean(b.description_cy, 1000, { label: "Welsh description" }),
+    location_en: clean(b.location_en, 120, { required: true, label: "Where" }),
+    location_cy: clean(b.location_cy, 120, { label: "Welsh location" }),
+    organiser: clean(b.organiser, 120, { label: "Organiser" }),
+    day: Number(b.day),
+    start_time: clean(b.start_time, 5, { required: true, label: "Start time" }),
+    end_time: clean(b.end_time, 5, { label: "End time" }),
+    week_of_month: b.week_of_month === "" || b.week_of_month == null ? null : Number(b.week_of_month),
+    starts_on: clean(b.starts_on, 10, { label: "Start date" }),
+    ends_on: clean(b.ends_on, 10, { label: "End date" }),
+  };
+  if (!Number.isInteger(w.day) || w.day < 0 || w.day > 6) httpError(400, "Please choose a day of the week.");
+  if (!TIME.test(w.start_time)) httpError(400, "Please give a valid start time.");
+  if (w.end_time && !TIME.test(w.end_time)) httpError(400, "Please give a valid end time.");
+  if (w.end_time && w.end_time < w.start_time) httpError(400, "It can't finish before it starts.");
+  if (w.week_of_month !== null && ![1, 2, 3, 4, -1].includes(w.week_of_month)) httpError(400, "Please choose how often it happens.");
+  if (w.starts_on && !DATE.test(w.starts_on)) httpError(400, "Please give a valid start date.");
+  if (w.ends_on && !DATE.test(w.ends_on)) httpError(400, "Please give a valid end date.");
+  if (w.starts_on && w.ends_on && w.ends_on < w.starts_on) httpError(400, "The end date is before the start date.");
+  return w;
 }
 
 function newsInput(b) {
@@ -124,6 +155,15 @@ async function publicEvents(env) {
   return json({ events: results });
 }
 
+async function publicWeekly(env) {
+  const today = ukNow().slice(0, 10);
+  const { results } = await env.DB.prepare(
+    `SELECT id, title_en, title_cy, description_en, description_cy, location_en, location_cy, organiser, day, start_time, end_time, week_of_month, starts_on, ends_on
+     FROM weekly WHERE status = 'approved' AND (ends_on IS NULL OR ends_on >= ?) ORDER BY day, start_time`
+  ).bind(today).all();
+  return json({ weekly: results });
+}
+
 async function publicNews(env) {
   const { results } = await env.DB.prepare(
     "SELECT id, title_en, title_cy, summary_en, summary_cy, body_en, body_cy, category_en, category_cy, published_at FROM news WHERE status = 'approved' ORDER BY published_at DESC LIMIT 30"
@@ -159,16 +199,24 @@ async function submitEvent(request, env) {
 }
 
 // ---------- moderator API ----------
+// The three kinds of content moderators manage. They all follow the same approval rules.
+const KINDS = {
+  event:  { table: "events", fields: EVENT_FIELDS,  input: (b) => eventInput(b, { isPublic: false }), label: "event",            title: "Event",    order: "t.start_at" },
+  news:   { table: "news",   fields: NEWS_FIELDS,   input: newsInput,   label: "news post",        title: "Headline", order: "COALESCE(t.published_at, t.created_at) DESC", published: true },
+  weekly: { table: "weekly", fields: WEEKLY_FIELDS, input: weeklyInput, label: "regular activity", title: "Activity", order: "t.day, t.start_time" },
+};
+const KIND_BY_PATH = { events: "event", news: "news", weekly: "weekly" };
+
 async function loadItem(env, table, id) {
   const row = await env.DB.prepare(`SELECT * FROM ${table} WHERE id = ?`).bind(id).first();
   if (!row || row.status === "deleted") httpError(404, "Not found.");
   return row;
 }
 
-async function listItems(env, table, url) {
+async function listItems(env, kind, url) {
+  const { table, order } = KINDS[kind];
   const status = url.searchParams.get("status") || "all";
   const where = status === "all" ? "t.status != 'deleted'" : "t.status = ?";
-  const order = table === "events" ? "t.start_at" : "COALESCE(t.published_at, t.created_at) DESC";
   const stmt = env.DB.prepare(
     `SELECT t.*, s.name AS submitted_by_name, r.name AS reviewed_by_name, e.name AS last_edited_by_name
      FROM ${table} t
@@ -182,21 +230,20 @@ async function listItems(env, table, url) {
 }
 
 async function createItem(env, me, kind, b) {
-  const isEvent = kind === "event";
-  const table = isEvent ? "events" : "news";
-  const data = isEvent ? eventInput(b, { isPublic: false }) : newsInput(b);
-  const fields = isEvent ? EVENT_FIELDS : NEWS_FIELDS;
+  const K = KINDS[kind];
+  const { table, fields } = K;
+  const data = K.input(b);
   const lead = me.role === "lead";
   const status = lead ? "approved" : "pending";
 
   const cols = [...fields, "status", "submitted_by", "last_edited_by", "needs_other_than", "reviewed_by", "reviewed_at"];
   const vals = [...fields.map((f) => data[f]), status, me.id, me.id, lead ? null : me.id, lead ? me.id : null, lead ? new Date().toISOString() : null];
-  if (isEvent) { cols.push("source"); vals.push("moderator"); }
-  if (!isEvent) { cols.push("published_at"); vals.push(lead ? new Date().toISOString() : null); }
+  if (kind === "event") { cols.push("source"); vals.push("moderator"); }
+  if (K.published) { cols.push("published_at"); vals.push(lead ? new Date().toISOString() : null); }
 
   const r = await env.DB.prepare(`INSERT INTO ${table} (${cols.join(", ")}) VALUES (${cols.map(() => "?").join(", ")})`).bind(...vals).run();
   const id = r.meta.last_row_id;
-  const label = isEvent ? "event" : "news post";
+  const label = K.label;
   await log(env, me, "created", kind, id,
     lead ? `Added and published ${label} "${data.title_en}" (lead moderator, no second approval needed)`
          : `Added ${label} "${data.title_en}" (waiting for a second moderator to approve)`);
@@ -204,7 +251,7 @@ async function createItem(env, me, kind, b) {
   if (!lead) {
     await notifyModerators(env, {
       subject: `Please approve: ${data.title_en}`,
-      lines: [`${me.name} has added a ${label} that needs a second moderator to approve it.`, `${isEvent ? "Event" : "Headline"}: ${data.title_en}`],
+      lines: [`${me.name} has added a ${label} that needs a second moderator to approve it.`, `${K.title}: ${data.title_en}`],
       link: "/admin/#queue",
       excludeId: me.id,
     });
@@ -213,14 +260,13 @@ async function createItem(env, me, kind, b) {
 }
 
 async function editItem(env, me, kind, id, b) {
-  const isEvent = kind === "event";
-  const table = isEvent ? "events" : "news";
+  const K = KINDS[kind];
+  const { table, fields } = K;
   const before = await loadItem(env, table, id);
   const lead = me.role === "lead";
   if (!lead && before.status === "rejected") httpError(403, "Only a lead moderator can edit a rejected item.");
 
-  const data = isEvent ? eventInput({ ...before, ...b }, { isPublic: false }) : newsInput({ ...before, ...b });
-  const fields = isEvent ? EVENT_FIELDS : NEWS_FIELDS;
+  const data = K.input({ ...before, ...b });
   const changes = diff(before, data, fields);
   if (!Object.keys(changes).length) return { id, status: before.status, unchanged: true };
 
@@ -239,12 +285,12 @@ async function editItem(env, me, kind, id, b) {
 
   // Don't copy private contact details into the log.
   const safe = Object.fromEntries(Object.entries(changes).map(([k, v]) => [k, k.startsWith("contact_") ? { changed: true } : v]));
-  await log(env, me, "edited", kind, id, `Edited ${isEvent ? "event" : "news post"} "${data.title_en}"${note}. Changed: ${Object.keys(changes).join(", ")}`, safe);
+  await log(env, me, "edited", kind, id, `Edited ${K.label} "${data.title_en}"${note}. Changed: ${Object.keys(changes).join(", ")}`, safe);
 
   if (status === "pending" && before.status === "approved") {
     await notifyModerators(env, {
       subject: `Please re-approve: ${data.title_en}`,
-      lines: [`${me.name} edited a live ${isEvent ? "event" : "news post"}, so it needs approving again.`, `Title: ${data.title_en}`],
+      lines: [`${me.name} edited a live ${K.label}, so it needs approving again.`, `Title: ${data.title_en}`],
       link: "/admin/#queue", excludeId: me.id,
     });
   }
@@ -252,19 +298,18 @@ async function editItem(env, me, kind, id, b) {
 }
 
 async function reviewItem(env, me, kind, id, action, b) {
-  const isEvent = kind === "event";
-  const table = isEvent ? "events" : "news";
+  const K = KINDS[kind];
+  const { table, label } = K;
   const item = await loadItem(env, table, id);
   const lead = me.role === "lead";
-  const label = isEvent ? "event" : "news post";
   const now = new Date().toISOString();
 
   if (action === "approve") {
     if (item.status !== "pending") httpError(409, "Only items waiting for approval can be approved.");
     if (!lead && (item.submitted_by === me.id || item.needs_other_than === me.id))
       httpError(403, "You added or changed this, so a different moderator needs to approve it.");
-    const extra = isEvent ? "" : ", published_at = ?";
-    const vals = isEvent ? [me.id, now, id] : [me.id, now, now, id];
+    const extra = K.published ? ", published_at = ?" : "";
+    const vals = K.published ? [me.id, now, now, id] : [me.id, now, id];
     await env.DB.prepare(`UPDATE ${table} SET status = 'approved', reviewed_by = ?, reviewed_at = ?, reject_reason = NULL, needs_other_than = NULL${extra} WHERE id = ?`).bind(...vals).run();
     await log(env, me, "approved", kind, id, `Approved ${label} "${item.title_en}" — now live on the website`);
     return { id, status: "approved" };
@@ -292,9 +337,9 @@ async function reviewItem(env, me, kind, id, action, b) {
 
   if (action === "delete") {
     if (!lead) httpError(403, "Only a lead moderator can delete items.");
-    const sql = isEvent
+    const sql = kind === "event"
       ? "UPDATE events SET status = 'deleted', contact_name = NULL, contact_email = NULL, contact_phone = NULL WHERE id = ?"
-      : "UPDATE news SET status = 'deleted' WHERE id = ?";
+      : `UPDATE ${table} SET status = 'deleted' WHERE id = ?`;
     await env.DB.prepare(sql).bind(id).run();
     await log(env, me, "deleted", kind, id, `Deleted ${label} "${item.title_en}"`);
     return { id, status: "deleted" };
@@ -376,20 +421,20 @@ async function handleAdmin(request, env, url, me) {
   if (path === "/me" && method === "GET") return json({ me });
 
   // Events and news share the same routes
-  if ((m = path.match(/^\/(events|news)$/))) {
-    const kind = m[1] === "events" ? "event" : "news";
+  if ((m = path.match(/^\/(events|news|weekly)$/))) {
+    const kind = KIND_BY_PATH[m[1]];
     if (method === "GET") {
-      const items = await listItems(env, m[1], url);
+      const items = await listItems(env, kind, url);
       return json({ items });
     }
     if (method === "POST") return json(await createItem(env, me, kind, await readJson(request)));
   }
-  if ((m = path.match(/^\/(events|news)\/(\d+)$/)) && method === "PUT") {
-    return json(await editItem(env, me, m[1] === "events" ? "event" : "news", Number(m[2]), await readJson(request)));
+  if ((m = path.match(/^\/(events|news|weekly)\/(\d+)$/)) && method === "PUT") {
+    return json(await editItem(env, me, KIND_BY_PATH[m[1]], Number(m[2]), await readJson(request)));
   }
-  if ((m = path.match(/^\/(events|news)\/(\d+)\/(approve|reject|restore|delete)$/)) && method === "POST") {
+  if ((m = path.match(/^\/(events|news|weekly)\/(\d+)\/(approve|reject|restore|delete)$/)) && method === "POST") {
     const body = request.headers.get("content-length") === "0" ? {} : await request.json().catch(() => ({}));
-    return json(await reviewItem(env, me, m[1] === "events" ? "event" : "news", Number(m[2]), m[3], body));
+    return json(await reviewItem(env, me, KIND_BY_PATH[m[1]], Number(m[2]), m[3], body));
   }
 
   // Leads only
@@ -420,7 +465,9 @@ async function handleAuth(request, env, url) {
   if (path === "/github" && request.method === "GET") return startGithubSignIn(request, env);
 
   if (path === "/github/callback" && request.method === "GET") {
-    const out = await finishGithubSignIn(request, env);
+    let out;
+    try { out = await finishGithubSignIn(request, env); }
+    catch (e) { console.error("GitHub sign-in failed", e); out = { error: "server" }; }
     const headers = new Headers();
     headers.append("Set-Cookie", clearStateCookie(request));
     if (out.error) {
@@ -446,13 +493,42 @@ async function handleAuth(request, env, url) {
   return fail(404, "Not found.");
 }
 
+// Newer tables are created automatically the first time the site runs after an update,
+// so nobody has to paste SQL into the D1 console. (The same SQL is in migrations/.)
+let schemaReady = false;
+async function ensureSchema(env) {
+  if (schemaReady) return;
+  await env.DB.batch(SCHEMA_UPDATES.map((sql) => env.DB.prepare(sql)));
+  schemaReady = true;
+}
+const SCHEMA_UPDATES = [
+  `CREATE TABLE IF NOT EXISTS sessions (id INTEGER PRIMARY KEY AUTOINCREMENT, token_hash TEXT NOT NULL UNIQUE,
+     moderator_id INTEGER NOT NULL REFERENCES moderators(id), created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+     expires_at TEXT NOT NULL, device TEXT)`,
+  `CREATE INDEX IF NOT EXISTS idx_sessions_moderator ON sessions (moderator_id)`,
+  `CREATE TABLE IF NOT EXISTS weekly (id INTEGER PRIMARY KEY AUTOINCREMENT,
+     title_en TEXT NOT NULL, title_cy TEXT, description_en TEXT NOT NULL DEFAULT '', description_cy TEXT,
+     location_en TEXT NOT NULL, location_cy TEXT, organiser TEXT,
+     day INTEGER NOT NULL CHECK (day BETWEEN 0 AND 6), start_time TEXT NOT NULL, end_time TEXT,
+     week_of_month INTEGER CHECK (week_of_month IN (1, 2, 3, 4, -1)), starts_on TEXT, ends_on TEXT,
+     status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'deleted')),
+     submitted_by INTEGER REFERENCES moderators(id), last_edited_by INTEGER REFERENCES moderators(id),
+     needs_other_than INTEGER REFERENCES moderators(id), reviewed_by INTEGER REFERENCES moderators(id),
+     reviewed_at TEXT, reject_reason TEXT,
+     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')))`,
+  `CREATE INDEX IF NOT EXISTS idx_weekly_status_day ON weekly (status, day)`,
+];
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     try {
+      if (url.pathname.startsWith("/api/")) await ensureSchema(env);
       if (url.pathname === "/api/config") return json({ turnstileSiteKey: env.TURNSTILE_SITE_KEY || null });
       if (url.pathname === "/api/events" && request.method === "GET") return await publicEvents(env);
       if (url.pathname === "/api/news" && request.method === "GET") return await publicNews(env);
+      if (url.pathname === "/api/weekly" && request.method === "GET") return await publicWeekly(env);
       if (url.pathname === "/api/events/submit" && request.method === "POST") return await submitEvent(request, env);
 
       if (url.pathname.startsWith("/api/auth/")) return await handleAuth(request, env, url);

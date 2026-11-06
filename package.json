@@ -9,7 +9,7 @@
     "db:local": "wrangler d1 migrations apply llansannan --local --env dev && wrangler d1 execute llansannan --local --env dev --file=seed/dev-seed.sql",
     "db:remote": "wrangler d1 migrations apply llansannan --remote",
     "deploy": "wrangler deploy",
-    "test": "node tests/moderation-rules.test.mjs && node tests/sign-in-github.test.mjs"
+    "test": "node tests/moderation-rules.test.mjs && node tests/regular-activities.test.mjs && node tests/sign-in-github.test.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.40.0"

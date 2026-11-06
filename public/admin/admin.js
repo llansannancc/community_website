@@ -36,6 +36,17 @@ function ago(iso) {
   return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}, ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 const statusLabel = { pending: "Waiting", approved: "Live", rejected: "Rejected" };
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const WEEK_NAMES = { 1: "First", 2: "Second", 3: "Third", 4: "Fourth", "-1": "Last" };
+function howOften(it) {
+  const day = DAY_NAMES[it.day];
+  const t = it.start_time + (it.end_time ? `–${it.end_time}` : "");
+  const base = it.week_of_month == null ? `Every ${day}` : `${WEEK_NAMES[it.week_of_month]} ${day} of the month`;
+  const fmt = (d) => { const [y, m, dd] = d.split("-").map(Number); return `${dd} ${MONTHS[m - 1]} ${y}`; };
+  const range = it.starts_on && it.ends_on ? ` · ${fmt(it.starts_on)} to ${fmt(it.ends_on)}` : it.starts_on ? ` · from ${fmt(it.starts_on)}` : it.ends_on ? ` · until ${fmt(it.ends_on)}` : "";
+  return `${base}, ${t}${range}`;
+}
+const EDIT_SLUG = { events: "event", news: "news", weekly: "weekly" };
 
 // Two-click confirm for anything destructive (no pop-ups)
 function armed(btn, fn) {
@@ -74,13 +85,16 @@ function cardHTML(kind, it) {
   const canApprove = it.status === "pending" && (lead || !mine);
   const btns = [];
   if (canApprove) btns.push(`<button class="btn ok" data-do="approve">Approve</button>`);
-  if (it.status !== "rejected" || lead) btns.push(`<a class="btn" href="#edit-${isEvent ? "event" : "news"}-${it.id}">Edit</a>`);
+  if (it.status !== "rejected" || lead) btns.push(`<a class="btn" href="#edit-${EDIT_SLUG[kind]}-${it.id}">Edit</a>`);
   if (it.status === "pending") btns.push(`<button class="btn danger" data-do="reject-open">${mine ? "Withdraw" : "Reject"}</button>`);
   if (it.status === "approved" && lead) btns.push(`<button class="btn danger" data-do="reject-open">Take down</button>`);
   if (it.status === "rejected" && lead) btns.push(`<button class="btn" data-do="restore">Move back to waiting</button>`);
   if (lead) btns.push(`<button class="btn danger" data-do="delete">Delete</button>`);
 
-  const body = isEvent
+  const body = kind === "weekly"
+    ? `<div class="when">${howOften(it)}</div><div class="meta">📍 ${esc(it.location_en)}${it.organiser ? ` · Run by ${esc(it.organiser)}` : ""}</div>
+       ${it.description_en ? `<div class="desc">${esc(it.description_en)}</div>` : ""}`
+    : isEvent
     ? `<div class="when">${when(it.start_at, it.end_at)}</div><div class="meta">📍 ${esc(it.location_en)}${it.organiser ? ` · Organised by ${esc(it.organiser)}` : ""}</div>
        ${it.description_en ? `<div class="desc">${esc(it.description_en)}</div>` : ""}`
     : `<div class="meta">${esc(it.category_en)}${it.published_at ? ` · published ${ago(it.published_at)}` : ""}</div>
@@ -118,27 +132,27 @@ function wireCards(container, reload) {
 
 // ---------- views ----------
 async function loadQueue() {
-  const [ev, nw] = await Promise.all([api("/events?status=pending"), api("/news?status=pending")]);
-  for (const [kind, out, el] of [["events", ev, $("q-events")], ["news", nw, $("q-news")]]) {
+  const [ev, nw, wk] = await Promise.all([api("/events?status=pending"), api("/news?status=pending"), api("/weekly?status=pending")]);
+  for (const [kind, out, el] of [["events", ev, $("q-events")], ["news", nw, $("q-news")], ["weekly", wk, $("q-weekly")]]) {
     el.innerHTML = out.items.length ? out.items.map((it) => cardHTML(kind, it)).join("") : `<p class="empty">Nothing waiting.</p>`;
     wireCards(el, loadQueue);
   }
-  setCount(ev.items, nw.items);
+  setCount(ev.items, nw.items, wk.items);
 }
-function setCount(evs, nws) {
+function setCount(evs, nws, wks = []) {
   const lead = me.role === "lead";
-  const n = [...evs, ...nws].filter((it) => lead || (it.submitted_by !== me.id && it.needs_other_than !== me.id)).length;
+  const n = [...evs, ...nws, ...wks].filter((it) => lead || (it.submitted_by !== me.id && it.needs_other_than !== me.id)).length;
   $("c-queue").textContent = n || "";
 }
 async function refreshCount() {
-  const [ev, nw] = await Promise.all([api("/events?status=pending"), api("/news?status=pending")]);
-  setCount(ev.items, nw.items);
+  const [ev, nw, wk] = await Promise.all([api("/events?status=pending"), api("/news?status=pending"), api("/weekly?status=pending")]);
+  setCount(ev.items, nw.items, wk.items);
 }
 
-const listState = { events: "approved", news: "approved" };
+const listState = { events: "approved", news: "approved", weekly: "approved" };
 async function loadList(kind) {
   const out = await api(`/${kind}?status=${listState[kind]}`);
-  const el = $(kind === "events" ? "l-events" : "l-news");
+  const el = $({ events: "l-events", news: "l-news", weekly: "l-weekly" }[kind]);
   el.innerHTML = out.items.length ? out.items.map((it) => cardHTML(kind, it)).join("") : `<p class="empty">Nothing here.</p>`;
   wireCards(el, () => loadList(kind));
 }
@@ -207,6 +221,36 @@ $("nw-form").addEventListener("submit", async (e) => {
     const r = id ? await put(`/news/${id}`, d) : await post("/news", d);
     toast(r.unchanged ? "No changes to save." : r.status === "approved" ? "Saved: it's live on the website." : "Saved: waiting for another moderator to approve it.");
     location.hash = r.status === "approved" ? "#news" : "#queue";
+  } catch (err) { msg.className = "msg bad"; msg.textContent = err.message; }
+});
+
+// ---------- regular activities form ----------
+async function openWeeklyForm(id) {
+  const f = $("wk-form"); f.reset(); f.elements.id.value = ""; $("wk-msg").textContent = "";
+  const lead = me.role === "lead";
+  if (id) {
+    const { items } = await api("/weekly?status=all");
+    const it = items.find((x) => x.id === id);
+    if (!it) { toast("That activity couldn't be found."); location.hash = "#weekly"; return; }
+    fillForm(f, { ...it, week_of_month: it.week_of_month == null ? "" : String(it.week_of_month), day: String(it.day) });
+    f.elements.id.value = it.id;
+    $("wk-form-title").textContent = "Edit regular activity";
+    $("wk-form-intro").textContent = it.status === "approved" && !lead ? "This is live. If you save changes, it will come off the website until another moderator approves it." : "";
+  } else {
+    $("wk-form-title").textContent = "Add a regular activity";
+    $("wk-form-intro").textContent = (lead ? "As a lead moderator, it goes live as soon as you save it." : "Once saved, another moderator needs to approve it before it goes live.")
+      + " Use this for things that happen every week (or once a month), such as a Welsh class, choir practice or coffee morning.";
+  }
+}
+$("wk-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const d = formData(e.target), msg = $("wk-msg");
+  const id = d.id; delete d.id;
+  msg.className = "msg"; msg.textContent = "Saving…";
+  try {
+    const r = id ? await put(`/weekly/${id}`, d) : await post("/weekly", d);
+    toast(r.unchanged ? "No changes to save." : r.status === "approved" ? "Saved: it's live on the website." : "Saved: waiting for another moderator to approve it.");
+    location.hash = r.status === "approved" ? "#weekly" : "#queue";
   } catch (err) { msg.className = "msg bad"; msg.textContent = err.message; }
 });
 
@@ -279,14 +323,15 @@ $("log-more").onclick = () => loadLog(true);
 async function route() {
   if (!me) return;
   let h = (location.hash || "#queue").slice(1), v = h, id = null, m;
-  if ((m = h.match(/^edit-(event|news)-(\d+)$/))) { v = m[1] === "event" ? "add-event" : "add-news"; id = Number(m[2]); }
+  if ((m = h.match(/^edit-(event|news|weekly)-(\d+)$/))) { v = { event: "add-event", news: "add-news", weekly: "add-weekly" }[m[1]]; id = Number(m[2]); }
   if (!$("v-" + v) || ((v === "moderators" || v === "activity") && me.role !== "lead")) v = "queue";
   document.querySelectorAll(".view").forEach((x) => x.classList.toggle("show", x.id === "v-" + v));
-  document.querySelectorAll("nav.tabs a").forEach((a) => a.classList.toggle("on", a.dataset.v === (id ? (v === "add-event" ? "events" : "news") : v)));
+  document.querySelectorAll("nav.tabs a").forEach((a) => a.classList.toggle("on", a.dataset.v === (id ? { "add-event": "events", "add-news": "news", "add-weekly": "weekly" }[v] : v)));
   window.scrollTo(0, 0);
   try {
     if (v === "queue") await loadQueue();
-    if (v === "events" || v === "news") await loadList(v);
+    if (v === "events" || v === "news" || v === "weekly") await loadList(v);
+    if (v === "add-weekly") await openWeeklyForm(id);
     if (v === "add-event") await openEventForm(id);
     if (v === "add-news") await openNewsForm(id);
     if (v === "moderators") await loadModerators();
@@ -302,6 +347,7 @@ const SIGNIN_ERRORS = {
   "expired": "That sign-in took too long or was interrupted. Please try again.",
   "github": "GitHub didn't respond properly. Please try again in a minute.",
   "not-set-up": "GitHub sign-in hasn't been set up yet. See SETUP.md.",
+  "server": "Something went wrong while signing you in. Please try again. If it keeps happening, tell the website administrator.",
 };
 function showSignIn() {
   $("who").innerHTML = `<a href="/">Back to the website</a>`;

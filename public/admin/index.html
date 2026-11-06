@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Mulish:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --blue: #3466b0; --blue-dark: #24508f; --blue-soft: #edf3fc; --accent: #9cbcf0;
+    --blue: #3466b0; --blue-dark: #24508f; --blue-soft: #edf3fc; --accent: #ff9f43;
     --ink: #1c2329; --muted: #55606b; --line: #dde3e8; --bg: #f6f9fe;
     --ok: #1f7a46; --ok-soft: #e6f4ec; --warn: #8a5a00; --warn-soft: #fff4dc; --bad: #a12020; --bad-soft: #fbeaea;
     --head: 'Cormorant Garamond', Georgia, serif; --body: 'Mulish', 'Segoe UI', Arial, sans-serif;
@@ -126,8 +126,10 @@
     <a href="#queue" data-v="queue">To approve <span class="count" id="c-queue"></span></a>
     <a href="#events" data-v="events">Events</a>
     <a href="#news" data-v="news">News</a>
+    <a href="#weekly" data-v="weekly">Regular</a>
     <a href="#add-event" data-v="add-event">+ Add event</a>
     <a href="#add-news" data-v="add-news">+ Add news</a>
+    <a href="#add-weekly" data-v="add-weekly">+ Add regular</a>
     <a href="#moderators" data-v="moderators" class="lead-only" hidden>Moderators</a>
     <a href="#activity" data-v="activity" class="lead-only" hidden>Activity log</a>
   </div>
@@ -154,6 +156,7 @@
     <p class="lead-in">Check each item, then approve it to put it on the website. Items you added or changed yourself need a different moderator to approve them.</p>
     <h3 class="group">Events</h3><div id="q-events"></div>
     <h3 class="group">News</h3><div id="q-news"></div>
+    <h3 class="group">Regular activities</h3><div id="q-weekly"></div>
   </section>
 
   <section class="view" id="v-events">
@@ -170,6 +173,48 @@
       <button data-s="approved" class="on">Live</button><button data-s="pending">Waiting</button><button data-s="rejected">Rejected</button><button data-s="all">All</button>
     </div>
     <div id="l-news"></div>
+  </section>
+
+  <section class="view" id="v-weekly">
+    <h2 class="title">Regular activities</h2>
+    <p class="lead-in">Things that happen every week or once a month: classes, clubs, practices, coffee mornings. They appear on the homepage calendar and the Weekly sessions page. <a href="#add-weekly">Add one</a>.</p>
+    <div class="filters" data-for="weekly">
+      <button data-s="approved" class="on">Live</button><button data-s="pending">Waiting</button><button data-s="rejected">Rejected</button><button data-s="all">All</button>
+    </div>
+    <div id="l-weekly"></div>
+  </section>
+
+  <section class="view" id="v-add-weekly">
+    <h2 class="title" id="wk-form-title">Add a regular activity</h2>
+    <p class="lead-in" id="wk-form-intro"></p>
+    <form class="edit" id="wk-form">
+      <input type="hidden" name="id">
+      <div class="field"><label>Name</label><input name="title_en" required maxlength="120" placeholder="e.g. Welsh class for beginners"></div>
+      <div class="three">
+        <div class="field"><label>Day</label><select name="day" required>
+          <option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option>
+          <option value="5">Friday</option><option value="6">Saturday</option><option value="0">Sunday</option></select></div>
+        <div class="field"><label>Starts</label><input name="start_time" type="time" required></div>
+        <div class="field"><label>Ends</label><input name="end_time" type="time"></div>
+      </div>
+      <div class="field"><label>How often</label><select name="week_of_month">
+        <option value="">Every week</option><option value="1">First one in the month</option><option value="2">Second one in the month</option>
+        <option value="3">Third one in the month</option><option value="4">Fourth one in the month</option><option value="-1">Last one in the month</option></select></div>
+      <div class="field"><label>Where</label><input name="location_en" required maxlength="120"></div>
+      <div class="field"><label>Description <span class="hint">optional: who it's for, cost, what to bring</span></label><textarea name="description_en" maxlength="1000"></textarea></div>
+      <div class="field"><label>Run by <span class="hint">optional, shown on the website</span></label><input name="organiser" maxlength="120"></div>
+      <div class="two">
+        <div class="field"><label>First date <span class="hint">optional</span></label><input name="starts_on" type="date"></div>
+        <div class="field"><label>Last date <span class="hint">optional, e.g. end of term</span></label><input name="ends_on" type="date"></div>
+      </div>
+      <details class="welsh"><summary>Welsh version (optional)</summary>
+        <div class="field"><label>Enw</label><input name="title_cy" maxlength="120" placeholder="e.g. Dosbarth Cymraeg i ddechreuwyr"></div>
+        <div class="field"><label>Lle</label><input name="location_cy" maxlength="120"></div>
+        <div class="field"><label>Disgrifiad</label><textarea name="description_cy" maxlength="1000"></textarea></div>
+      </details>
+      <div class="actions"><button class="btn primary" type="submit">Save</button><a class="btn" href="#weekly">Cancel</a></div>
+      <p class="msg" id="wk-msg" role="status"></p>
+    </form>
   </section>
 
   <section class="view" id="v-add-event">

@@ -1,11 +1,8 @@
-// Llansannan Community website: loads events and news from the database and draws the pages.
-// Weekly activities are listed just below; everything else is managed in the moderator area (/admin).
+// Llansannan Community website: loads events, news and regular activities from the database and draws the pages.
+// Everything is managed in the moderator area (/admin).
 
-// ===== WEEKLY ACTIVITIES (day: 0 = Sunday … 6 = Saturday) =====
-const regular = [
-  { day: 2, start: "10:00", end: "11:30", en: { t: "Toddler group", loc: "Village Hall" }, cy: { t: "Cylch Ti a Fi", loc: "Neuadd y Pentref" } },
-  { day: 4, start: "19:30", end: "21:00", en: { t: "Côr Meibion rehearsal", loc: "Village Hall" }, cy: { t: "Ymarfer Côr Meibion", loc: "Neuadd y Pentref" } }
-];
+// Weekly and monthly activities are managed in the moderator area (/admin → Regular).
+let regular = [];
 
 // ---------- helpers ----------
 const D = { en: ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"],
@@ -88,11 +85,47 @@ function drawStrip() {
   }).join("") : emptyMsg("No events listed yet. Know of one? Submit it!", "Dim digwyddiadau eto. Gwybod am un? Cyflwynwch o!");
 }
 
+// Database row -> regular activity
+function toRegular(r) {
+  return {
+    id: r.id, day: r.day, start: r.start_time, end: r.end_time, every: r.week_of_month, from: r.starts_on, until: r.ends_on,
+    en: { t: esc(r.title_en), loc: esc(r.location_en), d: para(r.description_en) },
+    cy: { t: esc(r.title_cy || r.title_en), loc: esc(r.location_cy || r.location_en), d: para(r.description_cy || r.description_en) },
+    organiser: esc(r.organiser),
+  };
+}
+// Does this regular activity happen on date d?
+function happensOn(r, d) {
+  if (d.getDay() !== r.day) return false;
+  const k = key(d);
+  if (r.from && k < r.from) return false;
+  if (r.until && k > r.until) return false;
+  if (r.every == null) return true;
+  const nth = Math.ceil(d.getDate() / 7);
+  if (r.every === -1) { const next = new Date(d); next.setDate(d.getDate() + 7); return next.getMonth() !== d.getMonth(); }
+  return nth === r.every;
+}
+const ORD = { en: { 1: "First", 2: "Second", 3: "Third", 4: "Fourth", "-1": "Last" } };
+// Welsh word order: "Dydd Mercher cyntaf y mis", "ail Ddydd Mercher y mis", "Dydd Mercher olaf y mis"
+function monthlyCy(r) {
+  const day = D.cy[r.day];
+  return { 1: `${day} cyntaf y mis`, 2: `ail ${day.replace("Dydd", "Ddydd")} y mis`, 3: `trydydd ${day} y mis`, 4: `pedwerydd ${day} y mis`, "-1": `${day} olaf y mis` }[r.every];
+}
+function howOften(r) {
+  const s = new Date(2000, 0, 1); const [h, m] = r.start.split(":"); s.setHours(+h, +m);
+  let t = both(t12(s, "en"), t12(s, "cy"));
+  if (r.end) { const e = new Date(2000, 0, 1); const [eh, em] = r.end.split(":"); e.setHours(+eh, +em); t = both(t12(s, "en") + " – " + t12(e, "en"), t12(s, "cy") + " – " + t12(e, "cy")); }
+  const freq = r.every == null
+    ? both("Every " + D.en[r.day], "Bob " + D.cy[r.day].replace("Dydd ", "dydd "))
+    : both(`${ORD.en[r.every]} ${D.en[r.day]} of the month`, monthlyCy(r));
+  return `${freq}, ${t}`;
+}
+
 function buildDays() {
   const items = events.map((e) => ({ s: new Date(e.start), en: e.en, cy: e.cy, href: "#event-" + e.id, reg: false }));
   for (let n = 0; n < 60; n++) {
     const d = new Date(today); d.setDate(today.getDate() + n);
-    regular.forEach((r) => { if (d.getDay() === r.day) items.push({ s: at(d, r.start), en: r.en, cy: r.cy, href: "#groups", reg: true }); });
+    regular.forEach((r) => { if (happensOn(r, d)) items.push({ s: at(d, r.start), en: r.en, cy: r.cy, href: "#weekly", reg: true }); });
   }
   items.sort((a, b) => a.s - b.s);
   byDay = {};
@@ -135,6 +168,17 @@ function newsCard(n) {
     ${n.en.body ? `<details><summary>${both("Read more ›", "Darllen mwy ›")}</summary><p>${both(n.en.body, n.cy.body)}</p></details>` : ""}
   </article>`;
 }
+function drawWeekly() {
+  const el = $("weekly-list");
+  if (!regular.length) { el.innerHTML = emptyMsg("No regular sessions listed yet.", "Dim sesiynau rheolaidd wedi'u rhestru eto."); return; }
+  const order = [1, 2, 3, 4, 5, 6, 0];
+  el.innerHTML = order.filter((d) => regular.some((r) => r.day === d)).map((d) =>
+    `<h3 class="day-head">${both(D.en[d], D.cy[d])}</h3>` + regular.filter((r) => r.day === d).map((r) =>
+      `<div class="weekly-item"><strong>${both(r.en.t, r.cy.t)}</strong>
+        <div class="meta">🕒 ${howOften(r)}<br>📍 ${both(r.en.loc, r.cy.loc)}${r.organiser ? ` · ${both("Run by", "Gan")} ${r.organiser}` : ""}</div>
+        ${r.en.d ? `<p>${both(r.en.d, r.cy.d)}</p>` : ""}</div>`).join("")).join("");
+}
+
 function drawNews() {
   const none = emptyMsg("No news yet.", "Dim newyddion eto.");
   $("news-feed").innerHTML = news.length ? news.slice(0, 4).map(newsCard).join("") : none;
@@ -250,13 +294,15 @@ $("submit-again").addEventListener("click", () => { $("submit-form").reset(); $(
 // ---------- start ----------
 async function load() {
   try {
-    const [e, n] = await Promise.all([fetch("/api/events").then((r) => r.json()), fetch("/api/news").then((r) => r.json())]);
+    const [e, n, w] = await Promise.all([
+      fetch("/api/events").then((r) => r.json()), fetch("/api/news").then((r) => r.json()), fetch("/api/weekly").then((r) => r.json())]);
+    regular = (w.weekly || []).map(toRegular);
     events = (e.events || []).map(toEvent);
     news = (n.news || []).map(toNews);
   } catch (err) {
     console.error("Could not load events/news", err);
   }
-  drawNextBox(); drawStrip(); buildDays(); drawDays(); drawFullList(); drawNews();
+  drawNextBox(); drawStrip(); buildDays(); drawDays(); drawFullList(); drawNews(); drawWeekly();
   route();
 }
 window.addEventListener("hashchange", route);

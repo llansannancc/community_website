@@ -11,7 +11,7 @@
     --blue: #3466b0;
     --blue-dark: #24508f;
     --blue-soft: #edf3fc;
-    --accent: #9cbcf0;
+    --accent: #ff9f43;
     --cream: #f6f9fe;
     --head: 'Cormorant Garamond', Georgia, serif;
     --body: 'Mulish', 'Segoe UI', Arial, sans-serif;
@@ -262,6 +262,10 @@
     .news-feed { grid-template-columns: 1fr; }
   }
   button.btn { font: inherit; font-weight: 600; cursor: pointer; }
+  .day-head { font-size: calc(1.35rem * var(--head-scale)); margin: 22px 0 2px; padding-bottom: 4px; border-bottom: 2px solid var(--accent); display: inline-block; }
+  .weekly-item { padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .weekly-item .meta { color: var(--muted); font-size: 0.95rem; margin-top: 2px; }
+  .weekly-item p { margin: 6px 0 0; }
   /* Submit an event form */
   .form { max-width: 680px; }
   .form fieldset { border: none; padding: 0; margin: 0 0 22px; }
@@ -308,7 +312,7 @@
     <li><button class="drop-btn"><span class="en">What's On</span><span class="cy">Beth Sydd Ymlaen</span></button>
       <ul class="sub">
         <li><a href="#events"><span class="en">All events</span><span class="cy">Pob digwyddiad</span></a></li>
-        <li><a href="#groups"><span class="en">Weekly sessions</span><span class="cy">Sesiynau wythnosol</span></a></li>
+        <li><a href="#weekly"><span class="en">Weekly sessions</span><span class="cy">Sesiynau wythnosol</span></a></li>
         <li><a href="#submit"><span class="en">Submit an event</span><span class="cy">Cyflwyno digwyddiad</span></a></li>
       </ul></li>
     <li><button class="drop-btn"><span class="en">Our Village</span><span class="cy">Ein Pentref</span></button>
@@ -480,6 +484,14 @@
     <tr><th><span class="en">Bookings</span><span class="cy">Archebu</span></th><td>[ ]</td></tr>
   </table>
   <a class="btn btn-primary" href="tel:00000000000"><span class="en">Telephone to book</span><span class="cy">Ffoniwch i archebu</span></a>
+</div>
+
+<div class="page wrap inner" id="page-weekly">
+  <div class="crumb"><a href="#home"><span class="en">Home</span><span class="cy">Hafan</span></a> › <span class="en">Weekly sessions</span><span class="cy">Sesiynau wythnosol</span></div>
+  <h2 class="title"><span class="en">Weekly sessions</span><span class="cy">Sesiynau wythnosol</span></h2>
+  <p><span class="en">Classes, clubs and get-togethers that happen every week or every month.</span><span class="cy">Dosbarthiadau, clybiau a chyfarfodydd sy'n digwydd bob wythnos neu bob mis.</span></p>
+  <div id="weekly-list"></div>
+  <p style="margin-top:18px"><span class="en">Run something regular in the village?</span><span class="cy">Yn trefnu rhywbeth rheolaidd yn y pentref?</span> <a href="#submit"><span class="en">Let us know</span><span class="cy">Rhowch wybod i ni</span></a>.</p>
 </div>
 
 <div class="page wrap inner" id="page-groups">

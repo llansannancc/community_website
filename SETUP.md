@@ -112,4 +112,3 @@ Moderators sign in again once on the new address with **Sign in with GitHub**.
 - The Facebook group link: search the files for `facebook.com/groups/`.
 - The clerk's email in the privacy notice: search for `[clerk email address]`.
 - Phone numbers, emails, hall prices and opening hours marked `[ ]`.
-- Weekly activities: the list at the top of `public/js/site.js`.
