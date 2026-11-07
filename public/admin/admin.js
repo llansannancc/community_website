@@ -67,7 +67,7 @@ function photoHTML(it) {
   if (it.source === "public" && it.status === "pending") {
     return `<div class="photo-check"><img class="card-photo blurred" src="/img/${esc(it.image_id)}" alt="${esc(it.image_alt || "")}">
         <button class="btn" type="button" data-do="reveal">Show photo</button></div>
-      <div class="note info">Photo sent in by the public. It's blurred until you choose to look. Check it's suitable before approving. If it's offensive, <strong>Reject</strong> deletes it straight away.</div>`;
+      <div class="note info">Photo sent in by the public. It's blurred until you choose to look. Check it's suitable before approving. If it's offensive, use <strong>Report photo</strong>: the photo is deleted straight away and a private record of who sent it, and where from, is kept for 90 days.</div>`;
   }
   return `<img class="card-photo" src="/img/${esc(it.image_id)}" alt="${esc(it.image_alt || "")}" loading="lazy">`;
 }
@@ -98,6 +98,7 @@ function cardHTML(kind, it) {
   if (it.status === "pending") btns.push(`<button class="btn danger" data-do="reject-open">${mine ? "Withdraw" : "Reject"}</button>`);
   if (it.status === "approved" && lead) btns.push(`<button class="btn danger" data-do="reject-open">Take down</button>`);
   if (it.status === "rejected" && lead) btns.push(`<button class="btn" data-do="restore">Move back to waiting</button>`);
+  if (it.image_id && it.source === "public" && (it.status === "pending" || (it.status === "approved" && lead))) btns.push(`<button class="btn danger" data-do="report-open">Report photo</button>`);
   if (lead) btns.push(`<button class="btn danger" data-do="delete">Delete</button>`);
 
   const body = kind === "weekly"
@@ -120,6 +121,9 @@ function cardHTML(kind, it) {
     <div class="actions">${btns.join("")}</div>
     <div class="reject-box"><div class="field"><label>Reason <span class="hint">(optional, kept in the log)</span></label><textarea maxlength="500" style="min-height:70px"></textarea></div>
       <div class="actions"><button class="btn danger" data-do="reject">Confirm</button><button class="btn" data-do="reject-cancel">Cancel</button></div></div>
+    <div class="reject-box report-box"><p><strong>Report this photo?</strong> It will be deleted and this ${isEvent ? "event" : "story"} rejected. The sender's details, internet address and rough location are kept privately for 90 days, for lead moderators or the police. The same photo can't be sent again.</p>
+      <div class="field"><label>What's wrong with it? <span class="hint">(kept with the record)</span></label><textarea maxlength="500" style="min-height:70px" placeholder="For example: offensive image"></textarea></div>
+      <div class="actions"><button class="btn danger" data-do="report">Report and delete photo</button><button class="btn" data-do="report-cancel">Cancel</button></div></div>
   </div>`;
 }
 
@@ -128,7 +132,7 @@ function wireCards(container, reload) {
     const kind = card.dataset.kind, id = card.dataset.id;
     const act = async (action, body) => {
       const r = await post(`/${kind}/${id}/${action}`, body);
-      toast({ approve: "Approved: it's now live.", reject: r.status === "rejected" ? "Done." : "Done.", restore: "Moved back to waiting.", delete: "Deleted." }[action] || "Done.");
+      toast({ report: "Photo deleted and reported. A record of the sender is kept for 90 days.", approve: "Approved: it's now live.", reject: r.status === "rejected" ? "Done." : "Done.", restore: "Moved back to waiting.", delete: "Deleted." }[action] || "Done.");
       await reload(); refreshCount();
     };
     card.querySelectorAll("[data-do]").forEach((b) => {
@@ -139,6 +143,9 @@ function wireCards(container, reload) {
       if (d === "reject-cancel") b.onclick = () => card.querySelector(".reject-box").classList.remove("show");
       if (d === "reject") b.onclick = async () => { b.disabled = true; try { await act("reject", { reason: card.querySelector(".reject-box textarea").value }); } catch (e) { toast(e.message); b.disabled = false; } };
       if (d === "delete") armed(b, () => act("delete"));
+      if (d === "report-open") b.onclick = () => card.querySelector(".report-box").classList.add("show");
+      if (d === "report-cancel") b.onclick = () => card.querySelector(".report-box").classList.remove("show");
+      if (d === "report") b.onclick = async () => { b.disabled = true; try { await act("report", { reason: card.querySelector(".report-box textarea").value }); } catch (e) { toast(e.message); b.disabled = false; } };
     });
   });
 }
@@ -356,6 +363,25 @@ $("mod-form").addEventListener("submit", async (e) => {
   } catch (err) { msg.className = "msg bad"; msg.textContent = err.message; }
 });
 
+// ---------- reported photos (leads) ----------
+async function loadReports() {
+  const { reports } = await api("/reports");
+  $("report-list").innerHTML = reports.length ? reports.map((r) => `<div class="card rejected">
+    <div class="card-top"><h4>${esc(r.item_title || "(untitled)")}</h4><span class="pill rejected">Reported</span></div>
+    <div class="meta">${r.kind === "event" ? "Event" : "News"} · reported by ${esc(r.reported_by_name || "a moderator")} on ${ago(r.created_at)} · record deleted automatically ${ago(r.expires_at)}</div>
+    <div class="note">Reason: ${esc(r.reason || "")}</div>
+    <table class="trail"><tbody>
+      <tr><th>Name they gave</th><td>${esc(r.contact_name || "—")}</td></tr>
+      <tr><th>Email they gave</th><td>${esc(r.contact_email || "—")}</td></tr>
+      <tr><th>Phone they gave</th><td>${esc(r.contact_phone || "—")}</td></tr>
+      <tr><th>Photo sent</th><td>${r.sent_at ? new Date(r.sent_at).toLocaleString("en-GB", { timeZone: "Europe/London" }) + " (UK time)" : "—"}</td></tr>
+      <tr><th>Internet address (IP)</th><td>${esc(r.ip || "—")}</td></tr>
+      <tr><th>Rough location</th><td>${esc(r.place || "—")}</td></tr>
+      <tr><th>Internet provider</th><td>${esc(r.network || "—")}</td></tr>
+      <tr><th>Device / browser</th><td class="small">${esc(r.device || "—")}</td></tr>
+    </tbody></table></div>`).join("") : `<p class="empty">No reported photos.</p>`;
+}
+
 // ---------- activity log (leads) ----------
 const ACTION_LABEL = { signed_in: "Signed in", sign_in_refused: "Sign-in refused", submitted: "Submitted", created: "Added", edited: "Edited", approved: "Approved", rejected: "Rejected", withdrawn: "Withdrew",
   taken_down: "Took down", restored: "Restored", deleted: "Deleted", moderator_added: "Appointed", moderator_changed: "Changed moderator",
@@ -389,7 +415,7 @@ async function route() {
   if (!me) return;
   let h = (location.hash || "#queue").slice(1), v = h, id = null, m;
   if ((m = h.match(/^edit-(event|news|weekly)-(\d+)$/))) { v = { event: "add-event", news: "add-news", weekly: "add-weekly" }[m[1]]; id = Number(m[2]); }
-  if (!$("v-" + v) || ((v === "moderators" || v === "activity") && me.role !== "lead")) v = "queue";
+  if (!$("v-" + v) || ((v === "moderators" || v === "activity" || v === "reports") && me.role !== "lead")) v = "queue";
   document.querySelectorAll(".view").forEach((x) => x.classList.toggle("show", x.id === "v-" + v));
   document.querySelectorAll("nav.tabs a").forEach((a) => a.classList.toggle("on", a.dataset.v === (id ? { "add-event": "events", "add-news": "news", "add-weekly": "weekly" }[v] : v)));
   window.scrollTo(0, 0);
@@ -400,6 +426,7 @@ async function route() {
     if (v === "add-event") await openEventForm(id);
     if (v === "add-news") await openNewsForm(id);
     if (v === "moderators") await loadModerators();
+    if (v === "reports") await loadReports();
     if (v === "activity") { if ($("log-actor").options.length < 2) await loadModerators(); await loadLog(); }
   } catch (e) { toast(e.message); }
 }

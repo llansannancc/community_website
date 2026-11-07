@@ -126,12 +126,16 @@
   .dbtn.sel .w { color: #fff; }
   .dbtn.sel .c { background: #fff; color: var(--blue); }
   .day-panel h3 { font-size: 1.15rem; margin: 16px 0 6px; padding-bottom: 6px; border-bottom: 2px solid var(--line); }
-  .row { display: flex; gap: 14px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .row { display: flex; gap: 14px; align-items: flex-start; padding: 14px 8px; margin: 0 -8px; border-bottom: 1px solid var(--line); color: var(--ink); text-decoration: none; border-radius: 4px; }
+  .row:hover { background: var(--blue-soft); }
+  .row:hover strong { text-decoration: underline; }
   .row .time { flex-shrink: 0; width: 84px; font-weight: 600; color: var(--blue-dark); }
   .row .what { flex: 1; min-width: 0; }
-  .row .what strong { display: block; font-size: 1.05rem; }
+  .row .what strong { display: block; font-size: 1.05rem; color: var(--blue-dark); }
   .row .what small { color: var(--muted); font-size: 0.92rem; }
-  .row a.go { flex-shrink: 0; align-self: center; font-weight: 600; white-space: nowrap; }
+  .row .desc { margin: 4px 0 0; font-size: 0.95rem; line-height: 1.45; color: var(--ink); }
+  .row .go { display: inline-block; margin-top: 6px; font-weight: 600; color: var(--blue); font-size: 0.95rem; }
+  .row-thumb { flex-shrink: 0; width: 120px; height: 90px; object-fit: cover; border-radius: 4px; background: var(--blue-soft); }
   .tag-reg { display: inline-block; font-size: 0.7rem; font-weight: 600; color: var(--muted); border: 1px solid var(--line); padding: 0 6px; border-radius: 3px; margin-left: 6px; vertical-align: middle; }
   .empty { color: var(--muted); padding: 12px 0; }
 
@@ -178,6 +182,16 @@
   .list-row { display: flex; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--line); text-decoration: none; color: var(--ink); }
   .note { background: var(--soft); padding: 12px 16px; font-size: 0.85rem; border-left: 4px solid var(--blue); margin: 24px 0 0; }
 
+  .council-band { background: #fff; border-top: 1px solid var(--line); padding: 26px 0; }
+  .council-inner { display: flex; align-items: center; gap: 24px; justify-content: space-between; border-left: 4px solid var(--accent); padding-left: 20px; }
+  .council-band h2 { font-family: var(--head); color: var(--blue-dark); font-size: 1.6rem; margin-bottom: 6px; }
+  .council-band p { color: var(--muted); max-width: 640px; }
+  .council-band .btn { flex-shrink: 0; background: var(--blue); color: #fff; border: none; }
+  .council-note { margin-top: 28px; padding: 18px 20px; background: var(--blue-soft); border-left: 4px solid var(--accent); border-radius: 4px; }
+  .council-note h3 { font-family: var(--head); color: var(--blue-dark); font-size: 1.35rem; margin-bottom: 6px; }
+  .council-note p { margin-bottom: 12px; }
+  .ext { font-size: 0.85em; margin-left: 2px; }
+  @media (max-width: 760px) { .council-inner { flex-direction: column; align-items: flex-start; gap: 14px; } .council-band .btn { width: 100%; text-align: center; } }
   footer { background: var(--blue-dark); color: rgba(255,255,255,0.82); font-size: 0.92rem; border-top: 4px solid var(--accent); }
   .foot-cols { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 28px; padding: 32px 16px; max-width: 1040px; margin: 0 auto; }
   footer h3 { color: #fff; font-size: 1rem; margin-bottom: 8px; }
@@ -206,10 +220,10 @@
     .quick { grid-template-columns: 1fr; }
     .services { grid-template-columns: 1fr 1fr; }
     .foot-cols { grid-template-columns: 1fr; }
-    .row { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; }
-    .row .time { width: auto; }
-    .row .what { grid-column: 1 / -1; grid-row: 2; }
-    .row a.go { grid-column: 2; grid-row: 1; align-self: start; }
+    .row { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; }
+    .row .time { width: auto; grid-column: 1; grid-row: 1; }
+    .row .what { grid-column: 1; grid-row: 2; }
+    .row-thumb { grid-column: 2; grid-row: 1 / span 2; width: 88px; height: 88px; margin-top: 4px; }
   }
 
   .strip, .daystrip { scrollbar-width: none; -ms-overflow-style: none; }
@@ -328,6 +342,7 @@
         <li><a href="#groups"><span class="en">Clubs &amp; Groups</span><span class="cy">Clybiau a Grwpiau</span></a></li>
         <li><a href="#services"><span class="en">Local services</span><span class="cy">Gwasanaethau lleol</span></a></li>
         <li><a href="#send-news"><span class="en">Send us your news</span><span class="cy">Anfonwch eich newyddion</span></a></li>
+        <li><a class="council-link" href="#contact" target="_blank" rel="noopener"><span class="en">Community Council <span class="ext" aria-hidden="true">↗</span></span><span class="cy">Cyngor Cymuned <span class="ext" aria-hidden="true">↗</span></span></a></li>
       </ul></li>
     <li><a href="#news" data-p="news"><span class="en">News</span><span class="cy">Newyddion</span></a></li>
     <li><a href="#contact" data-p="contact"><span class="en">Contact</span><span class="cy">Cysylltu</span></a></li>
@@ -440,6 +455,16 @@
         <a class="qa" href="#visiting"><h3><span class="en">Visiting</span><span class="cy">Ymweld</span></h3><p><span class="en">Getting here, walks and places to see nearby.</span><span class="cy">Cyrraedd, teithiau cerdded a llefydd i'w gweld.</span></p><span class="more"><span class="en">Plan a visit ›</span><span class="cy">Cynllunio ›</span></span></a>
         <a class="qa" href="#submit"><h3><span class="en">Submit an event</span><span class="cy">Ychwanegu digwyddiad</span></h3><p><span class="en">Running something local? We'll list it free of charge.</span><span class="cy">Yn trefnu rhywbeth lleol? Fe wnawn ei restru am ddim.</span></p><span class="more"><span class="en">Tell us ›</span><span class="cy">Dywedwch wrthym ›</span></span></a>
       </div>
+    </div>
+  </section>
+
+  <section class="council-band">
+    <div class="wrap council-inner">
+      <div>
+        <h2><span class="en">Llansannan Community Council</span><span class="cy">Cyngor Cymuned Llansannan</span></h2>
+        <p><span class="en">For council business, such as meetings and minutes, planning, roads and footpaths, or to contact your councillors or the Clerk, please use the Council's own website.</span><span class="cy">Ar gyfer busnes y cyngor, fel cyfarfodydd a chofnodion, cynllunio, ffyrdd a llwybrau, neu i gysylltu â'ch cynghorwyr neu'r Clerc, defnyddiwch wefan y Cyngor ei hun.</span></p>
+      </div>
+      <a class="council-link btn btn-light" href="#contact" target="_blank" rel="noopener"><span class="en">Visit the Council website <span class="ext" aria-hidden="true">↗</span></span><span class="cy">Gwefan y Cyngor <span class="ext" aria-hidden="true">↗</span></span></a>
     </div>
   </section>
 
@@ -659,7 +684,7 @@
   <div class="form">
     <p><span class="en">This community website is supported by Llansannan Community Council (Cyngor Cymuned Llansannan) and run by councillors and local volunteers. The Council is responsible for any personal information collected through the website (it is the "data controller"). We keep personal information to a minimum.</span><span class="cy">Cefnogir y wefan gymunedol hon gan Gyngor Cymuned Llansannan ac fe'i rhedir gan gynghorwyr a gwirfoddolwyr lleol. Y Cyngor sy'n gyfrifol am unrhyw wybodaeth bersonol a gesglir drwy'r wefan (ef yw'r "rheolydd data"). Rydym yn cadw cyn lleied o wybodaeth bersonol â phosibl.</span></p>
     <h3 class="sub"><span class="en">When you send us an event or news</span><span class="cy">Pan fyddwch yn anfon digwyddiad neu newyddion atom</span></h3>
-    <p><span class="en">We ask for your name, email and (optionally) phone number so a moderator can contact you about what you've sent. Only our moderators (councillors and appointed volunteers) can see these details. They are never shown on the website, shared or used for anything else. They are deleted automatically 30 days after your event has taken place, or 30 days after your news has been dealt with. If you send a photo, it's shown with your event or news once approved; hidden details in the photo file, such as where it was taken, are removed automatically.</span><span class="cy">Rydym yn gofyn am eich enw, e-bost a (dewisol) rhif ffôn er mwyn i gymedrolwr allu cysylltu â chi am yr hyn rydych wedi'i anfon. Dim ond ein cymedrolwyr (cynghorwyr a gwirfoddolwyr penodedig) all weld y manylion hyn. Nid ydynt byth yn cael eu dangos ar y wefan, eu rhannu na'u defnyddio i unrhyw beth arall. Cânt eu dileu yn awtomatig 30 diwrnod ar ôl i'ch digwyddiad gael ei gynnal, neu 30 diwrnod ar ôl delio â'ch newyddion. Os byddwch yn anfon llun, bydd yn cael ei ddangos gyda'ch digwyddiad neu newyddion unwaith y caiff ei gymeradwyo; mae manylion cudd yn y ffeil, fel ble y tynnwyd y llun, yn cael eu tynnu'n awtomatig.</span></p>
+    <p><span class="en">We ask for your name, email and (optionally) phone number so a moderator can contact you about what you've sent. Only our moderators (councillors and appointed volunteers) can see these details. They are never shown on the website, shared or used for anything else. They are deleted automatically 30 days after your event has taken place, or 30 days after your news has been dealt with. If you send a photo, it's shown with your event or news once approved; hidden details in the photo file, such as where it was taken, are removed automatically. When you send a photo we also record your internet (IP) address, rough location, internet provider and type of device, to help protect the website from unsuitable photos. Only moderators can see these, and they are deleted as soon as the photo is approved, or after 30 days. If a moderator reports a photo as unsuitable, the photo is deleted, and these details and the contact details you gave are kept for 90 days so they can be passed to the police if needed.</span><span class="cy">Rydym yn gofyn am eich enw, e-bost a (dewisol) rhif ffôn er mwyn i gymedrolwr allu cysylltu â chi am yr hyn rydych wedi'i anfon. Dim ond ein cymedrolwyr (cynghorwyr a gwirfoddolwyr penodedig) all weld y manylion hyn. Nid ydynt byth yn cael eu dangos ar y wefan, eu rhannu na'u defnyddio i unrhyw beth arall. Cânt eu dileu yn awtomatig 30 diwrnod ar ôl i'ch digwyddiad gael ei gynnal, neu 30 diwrnod ar ôl delio â'ch newyddion. Os byddwch yn anfon llun, bydd yn cael ei ddangos gyda'ch digwyddiad neu newyddion unwaith y caiff ei gymeradwyo; mae manylion cudd yn y ffeil, fel ble y tynnwyd y llun, yn cael eu tynnu'n awtomatig. Pan fyddwch yn anfon llun rydym hefyd yn cofnodi eich cyfeiriad rhyngrwyd (IP), lleoliad bras, darparwr rhyngrwyd a math o ddyfais, i helpu i ddiogelu'r wefan rhag lluniau anaddas. Dim ond cymedrolwyr all weld y rhain, ac maent yn cael eu dileu cyn gynted ag y caiff y llun ei gymeradwyo, neu ar ôl 30 diwrnod. Os bydd cymedrolwr yn adrodd llun fel un anaddas, caiff y llun ei ddileu, a chedwir y manylion hyn a'r manylion cyswllt a roesoch am 90 diwrnod fel y gellir eu rhoi i'r heddlu os oes angen.</span></p>
     <h3 class="sub"><span class="en">Where it's stored</span><span class="cy">Ble mae'n cael ei gadw</span></h3>
     <p><span class="en">The website and its database are hosted by Cloudflare, with the database kept in the European Union. The form uses Cloudflare Turnstile to stop spam.</span><span class="cy">Mae'r wefan a'i chronfa ddata yn cael eu cynnal gan Cloudflare, gyda'r gronfa ddata yn yr Undeb Ewropeaidd. Mae'r ffurflen yn defnyddio Cloudflare Turnstile i atal sbam.</span></p>
     <h3 class="sub"><span class="en">Your rights</span><span class="cy">Eich hawliau</span></h3>
@@ -679,6 +704,11 @@
   </table>
   <a class="btn btn-primary btn-block" href="tel:00000000000"><span class="en">Telephone us</span><span class="cy">Ffoniwch ni</span></a>
   <a class="btn btn-outline btn-block" href="mailto:example@example.com"><span class="en">Email us</span><span class="cy">E-bostiwch ni</span></a>
+  <div class="council-note">
+    <h3><span class="en">Council business</span><span class="cy">Busnes y cyngor</span></h3>
+    <p><span class="en">This website is run by volunteers. For council matters, such as planning, roads, meetings, minutes, or to contact your councillors or the Clerk, please contact Llansannan Community Council directly.</span><span class="cy">Gwirfoddolwyr sy'n rhedeg y wefan hon. Ar gyfer materion y cyngor, fel cynllunio, ffyrdd, cyfarfodydd, cofnodion, neu i gysylltu â'ch cynghorwyr neu'r Clerc, cysylltwch â Chyngor Cymuned Llansannan yn uniongyrchol.</span></p>
+    <a class="council-link btn btn-primary" href="#contact" target="_blank" rel="noopener"><span class="en">Llansannan Community Council website <span class="ext" aria-hidden="true">↗</span></span><span class="cy">Gwefan Cyngor Cymuned Llansannan <span class="ext" aria-hidden="true">↗</span></span></a>
+  </div>
 </div>
 </main>
 
@@ -695,7 +725,9 @@
       <li><a href="#services"><span class="en">Local services</span><span class="cy">Gwasanaethau lleol</span></a></li>
       <li><a href="#news"><span class="en">Village news</span><span class="cy">Newyddion y pentref</span></a></li>
       <li><a href="https://www.facebook.com/groups/" target="_blank" rel="noopener"><span class="en">Facebook group</span><span class="cy">Grŵp Facebook</span></a></li></ul></div>
-    <div><h3><span class="en">Contact</span><span class="cy">Cysylltu</span></h3><p>[phone number]<br>[email address]</p></div>
+    <div><h3><span class="en">Contact</span><span class="cy">Cysylltu</span></h3><p>[phone number]<br>[email address]</p>
+      <h3 style="margin-top:16px"><span class="en">Community Council</span><span class="cy">Cyngor Cymuned</span></h3>
+      <p><span class="en">Council business, meetings and councillors:</span><span class="cy">Busnes y cyngor, cyfarfodydd a chynghorwyr:</span><br><a class="council-link" href="#contact" target="_blank" rel="noopener"><span class="en">Llansannan Community Council <span class="ext" aria-hidden="true">↗</span></span><span class="cy">Cyngor Cymuned Llansannan <span class="ext" aria-hidden="true">↗</span></span></a></p></div>
   </div>
   <div class="foot-base">© 2026 Llansannan · <a href="/admin/"><span class="en">Moderators</span><span class="cy">Cymedrolwyr</span></a> · <a href="#privacy"><span class="en">Privacy</span><span class="cy">Preifatrwydd</span></a></div>
 </footer>

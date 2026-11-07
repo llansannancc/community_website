@@ -31,6 +31,7 @@ Moderators sign in at **/admin** with **Sign in with GitHub**. The site checks t
 - Photos sent in by the public are **never public until a moderator approves the event or news**. Until then, only signed-in moderators can open them, even with the link.
 - In the approval queue they're **blurred**. Click **Show photo** to check one.
 - **Reject** deletes the photo straight away, and the activity log records it.
+- **Report photo** is for anything offensive: it deletes the photo, rejects the item, and stops the same photo being sent again. A private record of who sent it (the details they typed, their internet address, rough location, provider and device) is kept for 90 days on the **Reported photos** page, which only leads can see, so it can be given to the police if needed. For every other photo, those sender details are deleted as soon as it's approved, or after 30 days.
 - To stop the public sending photos altogether, set `"PUBLIC_PHOTOS": "off"` in `wrangler.jsonc` and push. People can still send events and news without a photo.
 - If a photo looks illegal (for example, any sexual image of a child), don't download, forward or screenshot it. Reject it, and report it to the Internet Watch Foundation at report.iwf.org.uk, or to the police.
 
@@ -49,6 +50,7 @@ Moderators sign in at **/admin** with **Sign in with GitHub**. The site checks t
 
 ## Common changes
 
+- **The Council's website address** (used by every Community Council link): `COUNCIL_SITE` near the top of `public/js/site.js`.
 - **Text on the pages** (history, local services, the hall and so on): edit `public/index.html`. Each piece of text has an English and a Welsh version side by side: `<span class="en">…</span><span class="cy">…</span>`.
 - **Photos on news stories and events:** in the news or event form, click **Choose a photo**. People submitting events can attach one too; it only appears once the event is approved, and hidden location details are removed. Unused photos are cleared out daily. It's shrunk automatically and stored in the database (no R2 or card needed). Add a short description for people using screen readers.
 - **News sent in by the public** (from **Send us your news** on the website) arrives in the queue like an event. The first paragraph becomes the summary on the homepage and the rest goes behind "Read more". Use **Edit** to tidy the wording before approving if it needs it.

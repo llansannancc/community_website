@@ -119,6 +119,10 @@
     table.list.resp tr { display: block; border-bottom: 1px solid var(--line); padding: 8px 0; }
     table.list.resp td { display: block; border: none; padding: 4px 12px; }
   }
+  table.trail { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.95rem; }
+  table.trail th { text-align: left; width: 40%; padding: 6px 8px; color: var(--muted); font-weight: 600; vertical-align: top; border-top: 1px solid var(--line); }
+  table.trail td { padding: 6px 8px; border-top: 1px solid var(--line); word-break: break-word; }
+  table.trail td.small { font-size: 0.82rem; }
 </style>
 </head>
 <body>
@@ -139,6 +143,7 @@
     <a href="#add-news" data-v="add-news">+ Add news</a>
     <a href="#add-weekly" data-v="add-weekly">+ Add regular</a>
     <a href="#moderators" data-v="moderators" class="lead-only" hidden>Moderators</a>
+    <a href="#reports" data-v="reports" class="lead-only" hidden>Reported photos</a>
     <a href="#activity" data-v="activity" class="lead-only" hidden>Activity log</a>
   </div>
 </nav>
@@ -321,6 +326,13 @@
     <div id="mod-list"></div>
   </section>
 
+  <section class="view" id="v-reports">
+    <h2 class="title">Reported photos</h2>
+    <p class="lead-in">When a moderator reports a photo, the photo is deleted and a record of who sent it is kept here for 90 days, then deleted automatically. Only lead moderators can see this page.</p>
+    <div class="note info">The name, email and phone are what the sender typed, so they may be false. The internet address and provider point to a connection (a home broadband line or phone network), not to a person, and the location is only approximate. Only the police can ask an internet provider who was using a connection.
+      If a photo might be illegal, don't try to trace the person yourself. Give these details to the police (101, or 999 in an emergency). For a sexual image of a child, report it to the police or to CEOP at ceop.police.uk.</div>
+    <div id="report-list"></div>
+  </section>
   <section class="view" id="v-activity">
     <h2 class="title">Activity log</h2>
     <p class="lead-in">A permanent record of everything done on the website. It can't be edited or deleted. Only lead moderators can see it.</p>

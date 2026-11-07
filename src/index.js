@@ -398,6 +398,9 @@ async function reviewItem(env, me, kind, id, action, b) {
     const extra = K.published ? ", published_at = ?" : "";
     const vals = K.published ? [me.id, now, now, id] : [me.id, now, id];
     await env.DB.prepare(`UPDATE ${table} SET status = 'approved', reviewed_by = ?, reviewed_at = ?, reject_reason = NULL, needs_other_than = NULL${extra} WHERE id = ?`).bind(...vals).run();
+    if (item.image_id) {
+      await env.DB.prepare("UPDATE images SET ip = NULL, place = NULL, network = NULL, device = NULL WHERE id = ? AND source = 'public'").bind(item.image_id).run();
+    }
     await log(env, me, "approved", kind, id, `Approved ${label} "${item.title_en}" — now live on the website`);
     return { id, status: "approved" };
   }
@@ -413,6 +416,30 @@ async function reviewItem(env, me, kind, id, action, b) {
     await log(env, me, wasLive ? "taken_down" : own ? "withdrawn" : "rejected", kind, id,
       `${wasLive ? "Took down" : own ? "Withdrew own" : "Rejected"} ${label} "${item.title_en}"${reason ? ` — reason: ${reason}` : ""}${photoGone ? " (the photo sent in with it was deleted)" : ""}`);
     return { id, status: "rejected" };
+  }
+
+  if (action === "report") {
+    // Unsuitable photo: keep a record of who sent it and where from (90 days, leads only),
+    // delete the photo itself, reject the item, and stop the same photo being sent again.
+    if (!item.image_id) httpError(409, "There's no photo on this item.");
+    const img = await env.DB.prepare("SELECT * FROM images WHERE id = ?").bind(item.image_id).first();
+    if (!img || img.source !== "public") httpError(409, "Only photos sent in by the public can be reported.");
+    if (item.status === "approved" && !lead) httpError(403, "Only a lead moderator can take down something that's already live.");
+    const reason = clean(b.reason, 500, { label: "Reason" }) || "Unsuitable photo";
+    const expires = new Date(Date.now() + REPORT_DAYS * 86400000).toISOString();
+    await env.DB.prepare(
+      `INSERT INTO photo_reports (kind, item_id, item_title, contact_name, contact_email, contact_phone,
+         ip, place, network, device, sent_at, fingerprint, reported_by, reason, expires_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(kind, id, item.title_en, item.contact_name || null, item.contact_email || null, item.contact_phone || null,
+      img.ip || null, img.place || null, img.network || null, img.device || null, img.created_at, img.fingerprint || null, me.id, reason, expires).run();
+    if (item.status !== "rejected") {
+      await env.DB.prepare(`UPDATE ${table} SET status = 'rejected', reviewed_by = ?, reviewed_at = ?, reject_reason = ? WHERE id = ?`).bind(me.id, now, "Photo reported: " + reason, id).run();
+    }
+    await removePublicPhoto(env, table, item);
+    await log(env, me, "photo_reported", kind, id,
+      `Reported the photo sent in with ${label} "${item.title_en}" — reason: ${reason}. The photo was deleted, the ${label} rejected, and a record of the sender kept for ${REPORT_DAYS} days`);
+    return { id, status: "rejected", reported: true };
   }
 
   if (action === "restore") {
@@ -577,10 +604,23 @@ async function uploadPublicImage(request, env) {
   const recent = await env.DB.prepare("SELECT COUNT(*) AS n FROM images WHERE ip_hash = ? AND created_at > ?").bind(ipHash, since).first();
   if (recent.n >= PUBLIC_UPLOADS_PER_HOUR) httpError(429, "You've uploaded several photos recently. Please wait an hour and try again.");
   const { type, bytes } = await readImage(request, ["image/jpeg"]);
+  // A fingerprint of the photo, so a photo that has been reported can't simply be sent again
+  const fingerprint = await sha256bytes(bytes);
+  const blocked = await env.DB.prepare("SELECT 1 AS x FROM photo_reports WHERE fingerprint = ? LIMIT 1").bind(fingerprint).first();
+  if (blocked) httpError(403, "This photo can't be used on the website.");
+  // Where it was sent from. Kept only until the photo is approved or 30 days have passed, unless a moderator reports it.
+  const cf = request.cf || {};
+  const place = [cf.city, cf.region, cf.country].filter(Boolean).join(", ");
+  const network = cf.asOrganization || "";
+  const device = (request.headers.get("User-Agent") || "").slice(0, 300);
   const id = newImageId();
-  await env.DB.prepare("INSERT INTO images (id, mime, data, size, source, ip_hash) VALUES (?, ?, ?, ?, 'public', ?)")
-    .bind(id, type, toBase64(bytes), bytes.length, ipHash).run();
+  await env.DB.prepare("INSERT INTO images (id, mime, data, size, source, ip_hash, ip, place, network, device, fingerprint) VALUES (?, ?, ?, ?, 'public', ?, ?, ?, ?, ?, ?)")
+    .bind(id, type, toBase64(bytes), bytes.length, ipHash, ip, place, network, device, fingerprint).run();
   return json({ id });
+}
+async function sha256bytes(bytes) {
+  const d = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 async function sha256hex(text) {
   const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
@@ -631,7 +671,7 @@ async function handleAdmin(request, env, url, me) {
   if ((m = path.match(/^\/(events|news|weekly)\/(\d+)$/)) && method === "PUT") {
     return json(await editItem(env, me, KIND_BY_PATH[m[1]], Number(m[2]), await readJson(request)));
   }
-  if ((m = path.match(/^\/(events|news|weekly)\/(\d+)\/(approve|reject|restore|delete)$/)) && method === "POST") {
+  if ((m = path.match(/^\/(events|news|weekly)\/(\d+)\/(approve|reject|restore|delete|report)$/)) && method === "POST") {
     const body = request.headers.get("content-length") === "0" ? {} : await request.json().catch(() => ({}));
     return json(await reviewItem(env, me, KIND_BY_PATH[m[1]], Number(m[2]), m[3], body));
   }
@@ -648,6 +688,14 @@ async function handleAdmin(request, env, url, me) {
   if ((m = path.match(/^\/moderators\/(\d+)$/)) && method === "PUT") {
     requireLead();
     return json(await updateModerator(env, me, Number(m[1]), await readJson(request)));
+  }
+  if (path === "/reports" && method === "GET") {
+    requireLead();
+    const { results } = await env.DB.prepare(
+      `SELECT r.*, m.name AS reported_by_name FROM photo_reports r LEFT JOIN moderators m ON m.id = r.reported_by
+       WHERE r.expires_at > ? ORDER BY r.created_at DESC`
+    ).bind(new Date().toISOString()).all();
+    return json({ reports: results });
   }
   if (path === "/activity" && method === "GET") {
     requireLead();
@@ -739,7 +787,7 @@ const NEW_COLUMNS = {
   news: [["image_id", "TEXT"], ["image_alt", "TEXT"], ["source", "TEXT NOT NULL DEFAULT 'moderator'"],
          ["contact_name", "TEXT"], ["contact_email", "TEXT"], ["contact_phone", "TEXT"]],
   events: [["image_id", "TEXT"], ["image_alt", "TEXT"]],
-  images: [["source", "TEXT"], ["ip_hash", "TEXT"]],
+  images: [["source", "TEXT"], ["ip_hash", "TEXT"], ["ip", "TEXT"], ["place", "TEXT"], ["network", "TEXT"], ["device", "TEXT"], ["fingerprint", "TEXT"]],
 };
 const SCHEMA_UPDATES = [
   `CREATE TABLE IF NOT EXISTS sessions (id INTEGER PRIMARY KEY AUTOINCREMENT, token_hash TEXT NOT NULL UNIQUE,
@@ -760,7 +808,15 @@ const SCHEMA_UPDATES = [
   `CREATE INDEX IF NOT EXISTS idx_weekly_status_day ON weekly (status, day)`,
   `CREATE TABLE IF NOT EXISTS images (id TEXT PRIMARY KEY, mime TEXT NOT NULL, data TEXT NOT NULL, size INTEGER NOT NULL,
      uploaded_by INTEGER REFERENCES moderators(id), created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')))`,
+  `CREATE TABLE IF NOT EXISTS photo_reports (id INTEGER PRIMARY KEY AUTOINCREMENT,
+     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+     kind TEXT NOT NULL, item_id INTEGER, item_title TEXT,
+     contact_name TEXT, contact_email TEXT, contact_phone TEXT,
+     ip TEXT, place TEXT, network TEXT, device TEXT, sent_at TEXT, fingerprint TEXT,
+     reported_by INTEGER REFERENCES moderators(id), reason TEXT, expires_at TEXT NOT NULL)`,
+  `CREATE INDEX IF NOT EXISTS idx_photo_reports_fp ON photo_reports (fingerprint)`,
 ];
+const REPORT_DAYS = 90;
 
 export default {
   async fetch(request, env) {
@@ -812,6 +868,14 @@ export default {
     ).bind(old).run();
     if (gone.meta.changes) {
       await log(env, { label: "System" }, "photo_cleanup", "system", null, `Removed ${gone.meta.changes} unused photo(s)`);
+    }
+    // Sender details on photos: gone after 30 days even if never dealt with
+    const ipOld = new Date(Date.now() - 30 * 86400000).toISOString();
+    await env.DB.prepare("UPDATE images SET ip = NULL, place = NULL, network = NULL, device = NULL WHERE created_at < ? AND ip IS NOT NULL").bind(ipOld).run();
+    // Reported-photo records: deleted after 90 days
+    const rep = await env.DB.prepare("DELETE FROM photo_reports WHERE expires_at < ?").bind(new Date().toISOString()).run();
+    if (rep.meta.changes) {
+      await log(env, { label: "System" }, "privacy_cleanup", "system", null, `Deleted ${rep.meta.changes} reported-photo record(s) after ${REPORT_DAYS} days`);
     }
     const cutoff = ukNow(-30);
     const r = await env.DB.prepare(

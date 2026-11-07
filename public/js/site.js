@@ -11,6 +11,8 @@ const M = { en: ["January","February","March","April","May","June","July","Augus
             cy: ["Ionawr","Chwefror","Mawrth","Ebrill","Mai","Mehefin","Gorffennaf","Awst","Medi","Hydref","Tachwedd","Rhagfyr"] };
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const para = (s) => esc(s).replace(/\n/g, "<br>");
+// A short preview of a description: one line of plain text, cut at a word, about 150 characters
+const snip = (s) => { const t = String(s || "").replace(/\s+/g, " ").trim(); if (t.length <= 150) return esc(t); const c = t.slice(0, 150); return esc(c.slice(0, c.lastIndexOf(" ")) + "…"); };
 const both = (a, b) => `<span class="en">${a}</span><span class="cy">${b}</span>`;
 const pad = (n) => String(n).padStart(2, "0");
 const stamp = (s) => s.replace(/[-:]/g, "") + "00";
@@ -21,6 +23,15 @@ const at = (d, hm) => { const x = new Date(d); const [h, m] = hm.split(":"); x.s
 const longDate = (d) => both(D.en[d.getDay()] + " " + d.getDate() + " " + M.en[d.getMonth()], D.cy[d.getDay()] + " " + d.getDate() + " " + M.cy[d.getMonth()]);
 const $ = (id) => document.getElementById(id);
 
+// ---------- Llansannan Community Council's own website ----------
+// Put the Council's web address here once; every "Community Council" link on the site uses it.
+// Until it's filled in, those links go to the Contact page instead.
+const COUNCIL_SITE = "https://llansannan-cc.gov.wales/";
+document.querySelectorAll("a.council-link").forEach((a) => {
+  if (COUNCIL_SITE) a.href = COUNCIL_SITE;
+  else { a.removeAttribute("target"); a.querySelectorAll(".ext").forEach((x) => x.remove()); }
+});
+
 const today = new Date(); today.setHours(0, 0, 0, 0);
 let events = [], news = [], byDay = {}, pick = new Date(today);
 
@@ -28,8 +39,8 @@ let events = [], news = [], byDay = {}, pick = new Date(today);
 function toEvent(r) {
   return {
     id: r.id, start: r.start_at, end: r.end_at,
-    en: { t: esc(r.title_en), d: para(r.description_en), loc: esc(r.location_en), raw: r },
-    cy: { t: esc(r.title_cy || r.title_en), d: para(r.description_cy || r.description_en), loc: esc(r.location_cy || r.location_en) },
+    en: { t: esc(r.title_en), d: para(r.description_en), s: snip(r.description_en), loc: esc(r.location_en), raw: r },
+    cy: { t: esc(r.title_cy || r.title_en), d: para(r.description_cy || r.description_en), s: snip(r.description_cy || r.description_en), loc: esc(r.location_cy || r.location_en) },
     organiser: esc(r.organiser),
     image: r.image_id ? { src: "/img/" + encodeURIComponent(r.image_id), alt: esc(r.image_alt || "") } : null,
   };
@@ -58,11 +69,15 @@ function dateBox(s) {
   return `<div class="ev-date"><span class="m">${both(M.en[s.getMonth()].slice(0,3), M.cy[s.getMonth()].slice(0,4))}</span>
     <span class="d">${s.getDate()}</span><span class="w">${both(D.en[s.getDay()].slice(0,3), D.cy[s.getDay()].replace("Dydd ",""))}</span></div>`;
 }
+// One event in the What's on day list: the whole row is a link, with a short description and the photo if there is one
 function rowHTML(it) {
-  return `<div class="row"><div class="time">${both(t12(it.s, "en"), t12(it.s, "cy"))}</div>
-    <div class="what"><strong>${both(it.en.t, it.cy.t)}${it.reg ? `<span class="tag-reg">${both("Every week", "Bob wythnos")}</span>` : ""}</strong>
-    <small>📍 ${both(it.en.loc, it.cy.loc)}</small></div>
-    <a class="go" href="${it.href}">${both("Details ›", "Manylion ›")}</a></div>`;
+  const tag = it.reg ? `<span class="tag-reg">${it.monthly ? both("Every month", "Bob mis") : both("Every week", "Bob wythnos")}</span>` : "";
+  const desc = it.en.s ? `<p class="desc">${both(it.en.s, it.cy.s || it.en.s)}</p>` : "";
+  return `<a class="row" href="${it.href}"><div class="time">${both(t12(it.s, "en"), t12(it.s, "cy"))}</div>
+    <div class="what"><strong>${both(it.en.t, it.cy.t)}${tag}</strong>
+    <small>📍 ${both(it.en.loc, it.cy.loc)}</small>${desc}
+    <span class="go">${both("Details ›", "Manylion ›")}</span></div>
+    ${it.image ? `<img class="row-thumb" src="${it.image.src}" alt="" loading="lazy">` : ""}</a>`;
 }
 const emptyMsg = (en, cy) => `<p class="empty">${both(en, cy)}</p>`;
 
@@ -91,8 +106,8 @@ function drawStrip() {
 function toRegular(r) {
   return {
     id: r.id, day: r.day, start: r.start_time, end: r.end_time, every: r.week_of_month, from: r.starts_on, until: r.ends_on,
-    en: { t: esc(r.title_en), loc: esc(r.location_en), d: para(r.description_en) },
-    cy: { t: esc(r.title_cy || r.title_en), loc: esc(r.location_cy || r.location_en), d: para(r.description_cy || r.description_en) },
+    en: { t: esc(r.title_en), loc: esc(r.location_en), d: para(r.description_en), s: snip(r.description_en) },
+    cy: { t: esc(r.title_cy || r.title_en), loc: esc(r.location_cy || r.location_en), d: para(r.description_cy || r.description_en), s: snip(r.description_cy || r.description_en) },
     organiser: esc(r.organiser),
   };
 }
@@ -124,10 +139,10 @@ function howOften(r) {
 }
 
 function buildDays() {
-  const items = events.map((e) => ({ s: new Date(e.start), en: e.en, cy: e.cy, href: "#event-" + e.id, reg: false }));
+  const items = events.map((e) => ({ s: new Date(e.start), en: e.en, cy: e.cy, href: "#event-" + e.id, reg: false, image: e.image }));
   for (let n = 0; n < 60; n++) {
     const d = new Date(today); d.setDate(today.getDate() + n);
-    regular.forEach((r) => { if (happensOn(r, d)) items.push({ s: at(d, r.start), en: r.en, cy: r.cy, href: "#weekly", reg: true }); });
+    regular.forEach((r) => { if (happensOn(r, d)) items.push({ s: at(d, r.start), en: r.en, cy: r.cy, href: "#weekly", reg: true, monthly: r.every != null }); });
   }
   items.sort((a, b) => a.s - b.s);
   byDay = {};
