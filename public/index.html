@@ -169,7 +169,7 @@
   /* Inner pages */
   .page { display: none; }
   .page.show { display: block; }
-  .inner { padding: 28px 0 44px; }
+  .inner { padding: 28px 16px 44px; }
   .crumb { font-size: 0.85rem; color: var(--muted); margin-bottom: 6px; }
   .inner h2.title { font-size: 1.8rem; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
   .inner h3.sub { font-size: 1.2rem; margin: 22px 0 8px; }
@@ -254,6 +254,24 @@
   .news-card .cat { background: var(--blue-soft); color: var(--blue-dark); font-weight: 600; padding: 1px 8px; border-radius: 10px; font-size: 0.75rem; }
   .news-card h3 { font-size: calc(1.25rem * var(--head-scale)); }
   .news-card p { font-size: 0.95rem; color: var(--muted); margin: 0; }
+  .news-card h3 a.story-link { color: inherit; text-decoration: none; }
+  .news-card h3 a.story-link:hover { text-decoration: underline; }
+  .news-card .read-more { font-weight: 600; margin-top: 4px; text-decoration: none; }
+  .news-card .read-more:hover { text-decoration: underline; }
+  .ph-count { font-weight: 400; color: var(--muted); font-size: 0.9rem; }
+  #story { max-width: 760px; }
+  .story-meta { display: flex; gap: 10px; align-items: center; font-size: 0.9rem; color: var(--muted); margin-bottom: 6px; }
+  .story-meta .cat { background: var(--blue-soft); color: var(--blue-dark); font-weight: 600; padding: 1px 8px; border-radius: 10px; font-size: 0.8rem; }
+  .story-photo { width: 100%; max-height: 520px; object-fit: cover; border-radius: 6px; margin-bottom: 14px; display: block; }
+  .story-summary { font-size: 1.12rem; font-weight: 600; margin-bottom: 12px; }
+  .story-body p { margin-bottom: 12px; }
+  .story-body a, .gallery figcaption a { word-break: break-word; }
+  .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin-bottom: 18px; }
+  .gallery figure { background: #fff; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .gallery img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; }
+  .gallery figcaption { padding: 8px 10px; font-size: 0.92rem; color: var(--ink); }
+  .story-back { margin-top: 10px; font-weight: 600; }
+  @media (max-width: 640px) { .gallery { grid-template-columns: 1fr; } .gallery img { aspect-ratio: auto; } }
   .news-card details summary { cursor: pointer; font-weight: 600; color: var(--blue); list-style: none; margin-top: 4px; }
   .news-card details summary::-webkit-details-marker { display: none; }
   .news-card details[open] summary { display: none; }
@@ -483,6 +501,11 @@
   <div class="crumb"><a href="#home"><span class="en">Home</span><span class="cy">Hafan</span></a> › <span class="en">Events</span><span class="cy">Digwyddiadau</span></div>
   <h2 class="title"><span class="en">All upcoming events</span><span class="cy">Pob digwyddiad i ddod</span></h2>
   <div id="full-list"></div>
+</div>
+
+<div class="page wrap inner" id="page-story">
+  <div class="crumb"><a href="#home"><span class="en">Home</span><span class="cy">Hafan</span></a> › <a href="#news"><span class="en">News</span><span class="cy">Newyddion</span></a></div>
+  <article id="story"></article>
 </div>
 
 <div class="page wrap inner" id="page-event">

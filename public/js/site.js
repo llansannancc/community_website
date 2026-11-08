@@ -11,6 +11,21 @@ const M = { en: ["January","February","March","April","May","June","July","Augus
             cy: ["Ionawr","Chwefror","Mawrth","Ebrill","Mai","Mehefin","Gorffennaf","Awst","Medi","Hydref","Tachwedd","Rhagfyr"] };
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const para = (s) => esc(s).replace(/\n/g, "<br>");
+// Story text with links: web addresses become links, and [link text](https://…) shows the words as the link.
+// Everything else is shown as plain text, so nothing typed can break the page.
+function richText(raw) {
+  const text = String(raw || "");
+  const re = /\[([^\]\n]{1,200})\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<]+[^\s<.,;:!?)\]'"])/g;
+  let out = "", last = 0, m;
+  while ((m = re.exec(text))) {
+    out += esc(text.slice(last, m.index));
+    const url = m[2] || m[3], label = m[1] || m[3].replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "");
+    out += `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(label)}</a>`;
+    last = re.lastIndex;
+  }
+  out += esc(text.slice(last));
+  return out.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean).map((p) => `<p>${p.replace(/\n/g, "<br>")}</p>`).join("");
+}
 // A short preview of a description: one line of plain text, cut at a word, about 150 characters
 const snip = (s) => { const t = String(s || "").replace(/\s+/g, " ").trim(); if (t.length <= 150) return esc(t); const c = t.slice(0, 150); return esc(c.slice(0, c.lastIndexOf(" ")) + "…"); };
 const both = (a, b) => `<span class="en">${a}</span><span class="cy">${b}</span>`;
@@ -50,8 +65,10 @@ function toNews(r) {
     id: r.id, date: r.published_at,
     cat: [esc(r.category_en), esc(r.category_cy || r.category_en)],
     image: r.image_id ? { src: "/img/" + encodeURIComponent(r.image_id), alt: esc(r.image_alt || "") } : null,
-    en: { t: esc(r.title_en), s: esc(r.summary_en), body: para(r.body_en) },
-    cy: { t: esc(r.title_cy || r.title_en), s: esc(r.summary_cy || r.summary_en), body: para(r.body_cy || r.body_en) },
+    gallery: (() => { try { return JSON.parse(r.gallery || "[]"); } catch { return []; } })()
+      .map((g) => ({ src: "/img/" + encodeURIComponent(g.id), en: esc(g.cap_en || ""), cy: esc(g.cap_cy || g.cap_en || "") })),
+    en: { t: esc(r.title_en), s: esc(r.summary_en), body: richText(r.body_en) },
+    cy: { t: esc(r.title_cy || r.title_en), s: esc(r.summary_cy || r.summary_en), body: richText(r.body_cy || r.body_en) },
   };
 }
 
@@ -181,9 +198,9 @@ function newsCard(n) {
   return `<article class="news-card${n.image ? " has-photo" : ""}">
     ${n.image ? `<img class="news-photo" src="${n.image.src}" alt="${n.image.alt}" loading="lazy">` : ""}
     <div class="meta"><span class="cat">${both(n.cat[0], n.cat[1])}</span><time>${both(d.getDate() + " " + M.en[d.getMonth()], d.getDate() + " " + M.cy[d.getMonth()])}</time></div>
-    <h3>${both(n.en.t, n.cy.t)}</h3>
+    <h3><a class="story-link" href="#news-${n.id}">${both(n.en.t, n.cy.t)}</a></h3>
     <p>${both(n.en.s, n.cy.s)}</p>
-    ${n.en.body ? `<details><summary>${both("Read more ›", "Darllen mwy ›")}</summary><p>${both(n.en.body, n.cy.body)}</p></details>` : ""}
+    <a class="read-more" href="#news-${n.id}">${n.en.body || n.gallery.length ? both("Read more ›", "Darllen mwy ›") : both("View ›", "Gweld ›")}${n.gallery.length ? ` <span class="ph-count">· ${n.gallery.length + (n.image ? 1 : 0)} ${both("photos", "llun")}</span>` : ""}</a>
   </article>`;
 }
 function drawWeekly() {
@@ -203,6 +220,22 @@ function drawNews() {
   $("news-all").innerHTML = news.length ? news.map(newsCard).join("") : none;
 }
 
+// A news story on its own page: main photo, summary, the full story with links, then all the photos with captions
+function renderStory(id) {
+  const n = news.find((x) => x.id === id); if (!n) return false;
+  const d = new Date(n.date);
+  $("story").innerHTML = `
+    <div class="meta story-meta"><span class="cat">${both(n.cat[0], n.cat[1])}</span><time>${longDate(d)} ${d.getFullYear()}</time></div>
+    <h2 class="title">${both(n.en.t, n.cy.t)}</h2>
+    ${n.image ? `<img class="story-photo" src="${n.image.src}" alt="${n.image.alt}">` : ""}
+    <p class="story-summary">${both(n.en.s, n.cy.s)}</p>
+    <div class="story-body">${both(n.en.body, n.cy.body)}</div>
+    ${n.gallery.length ? `<h3 class="sub">${both("Photos", "Lluniau")}</h3><div class="gallery">${n.gallery.map((g) => `
+      <figure><a href="${g.src}" target="_blank" rel="noopener"><img src="${g.src}" alt="${g.en}" loading="lazy"></a>${g.en ? `<figcaption>${both(g.en, g.cy)}</figcaption>` : ""}</figure>`).join("")}</div>` : ""}
+    <p class="story-back"><a href="#news">${both("‹ All news", "‹ Pob newyddion")}</a></p>`;
+  document.title = n.en.t.replace(/&amp;/g, "&") + " · Llansannan Community";
+  return true;
+}
 function renderDetail(id) {
   const e = events.find((x) => x.id === id); if (!e) return false;
   const s = new Date(e.start), en = new Date(e.end);
@@ -239,6 +272,8 @@ function route() {
   if (h === "whats-on-now") { show("home"); $("whats-on-now").scrollIntoView(); return; }
   let p = h;
   if (h.startsWith("event-")) p = renderDetail(Number(h.split("-")[1])) ? "event" : "home";
+  if (h.startsWith("news-")) p = renderStory(Number(h.split("-")[1])) ? "story" : "news";
+  if (!h.startsWith("news-")) document.title = "Llansannan Community";
   if (!$("page-" + p)) p = "home";
   if (FORMS[p]) prepareForm(p);
   show(p); window.scrollTo(0, 0);

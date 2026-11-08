@@ -60,7 +60,7 @@ function diff(before, after, fields) {
 
 // ---------- field definitions ----------
 const EVENT_FIELDS = ["title_en", "title_cy", "description_en", "description_cy", "location_en", "location_cy", "start_at", "end_at", "organiser", "contact_name", "contact_email", "contact_phone", "image_id", "image_alt"];
-const NEWS_FIELDS = ["title_en", "title_cy", "summary_en", "summary_cy", "body_en", "body_cy", "category_en", "category_cy", "image_id", "image_alt"];
+const NEWS_FIELDS = ["title_en", "title_cy", "summary_en", "summary_cy", "body_en", "body_cy", "category_en", "category_cy", "image_id", "image_alt", "gallery"];
 const WEEKLY_FIELDS = ["title_en", "title_cy", "description_en", "description_cy", "location_en", "location_cy", "organiser",
   "day", "start_time", "end_time", "week_of_month", "starts_on", "ends_on"];
 
@@ -133,13 +133,29 @@ function newsInput(b) {
     title_cy: clean(b.title_cy, 140, { label: "Welsh headline" }),
     summary_en: clean(b.summary_en, 300, { required: true, label: "Summary" }),
     summary_cy: clean(b.summary_cy, 300, { label: "Welsh summary" }),
-    body_en: clean(b.body_en, 5000, { label: "Full story" }) || "",
-    body_cy: clean(b.body_cy, 5000, { label: "Welsh full story" }),
+    body_en: clean(b.body_en, 20000, { label: "Full story" }) || "",
+    body_cy: clean(b.body_cy, 20000, { label: "Welsh full story" }),
     category_en: clean(b.category_en, 40, { label: "Category" }) || "Community",
     category_cy: clean(b.category_cy, 40, { label: "Welsh category" }),
     image_id: imageId(b.image_id),
     image_alt: clean(b.image_alt, 200, { label: "Photo description" }),
+    gallery: galleryInput(b.gallery),
   };
+}
+// More photos on a news post, each with an optional caption: stored as a list in one column
+const GALLERY_MAX = 40;
+function galleryInput(v) {
+  if (v == null || v === "") return null;
+  let list = v;
+  if (typeof v === "string") { try { list = JSON.parse(v); } catch { httpError(400, "The extra photos couldn't be read. Please try again."); } }
+  if (!Array.isArray(list)) httpError(400, "The extra photos couldn't be read. Please try again.");
+  if (list.length > GALLERY_MAX) httpError(400, `A post can have up to ${GALLERY_MAX} extra photos.`);
+  const out = list.map((p) => ({
+    id: imageId(p && p.id),
+    cap_en: clean(p && p.cap_en, 300, { label: "Photo caption" }) || "",
+    cap_cy: clean(p && p.cap_cy, 300, { label: "Welsh photo caption" }) || "",
+  })).filter((p) => p.id);
+  return out.length ? JSON.stringify(out) : null;
 }
 
 // ---------- Turnstile (spam protection on the public form) ----------
@@ -178,7 +194,7 @@ async function publicWeekly(env) {
 
 async function publicNews(env) {
   const { results } = await env.DB.prepare(
-    "SELECT id, title_en, title_cy, summary_en, summary_cy, body_en, body_cy, category_en, category_cy, image_id, image_alt, published_at FROM news WHERE status = 'approved' ORDER BY published_at DESC LIMIT 30"
+    "SELECT id, title_en, title_cy, summary_en, summary_cy, body_en, body_cy, category_en, category_cy, image_id, image_alt, gallery, published_at FROM news WHERE status = 'approved' ORDER BY published_at DESC LIMIT 30"
   ).all();
   return json({ news: results });
 }
@@ -771,7 +787,7 @@ async function ensureSchema(env) {
 }
 const NEWS_TABLE_COLUMNS = ["id", "title_en", "title_cy", "summary_en", "summary_cy", "body_en", "body_cy", "category_en", "category_cy",
   "status", "submitted_by", "last_edited_by", "needs_other_than", "reviewed_by", "reviewed_at", "reject_reason", "published_at",
-  "created_at", "updated_at", "image_id", "image_alt", "source", "contact_name", "contact_email", "contact_phone"];
+  "created_at", "updated_at", "image_id", "image_alt", "source", "contact_name", "contact_email", "contact_phone", "gallery"];
 const NEWS_TABLE_SQL = `CREATE TABLE IF NOT EXISTS news (
   id INTEGER PRIMARY KEY AUTOINCREMENT, title_en TEXT NOT NULL, title_cy TEXT, summary_en TEXT NOT NULL, summary_cy TEXT,
   body_en TEXT NOT NULL DEFAULT '', body_cy TEXT, category_en TEXT NOT NULL DEFAULT 'Community', category_cy TEXT,
@@ -782,10 +798,10 @@ const NEWS_TABLE_SQL = `CREATE TABLE IF NOT EXISTS news (
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   image_id TEXT, image_alt TEXT, source TEXT NOT NULL DEFAULT 'moderator',
-  contact_name TEXT, contact_email TEXT, contact_phone TEXT)`;
+  contact_name TEXT, contact_email TEXT, contact_phone TEXT, gallery TEXT)`;
 const NEW_COLUMNS = {
   news: [["image_id", "TEXT"], ["image_alt", "TEXT"], ["source", "TEXT NOT NULL DEFAULT 'moderator'"],
-         ["contact_name", "TEXT"], ["contact_email", "TEXT"], ["contact_phone", "TEXT"]],
+         ["contact_name", "TEXT"], ["contact_email", "TEXT"], ["contact_phone", "TEXT"], ["gallery", "TEXT"]],
   events: [["image_id", "TEXT"], ["image_alt", "TEXT"]],
   images: [["source", "TEXT"], ["ip_hash", "TEXT"], ["ip", "TEXT"], ["place", "TEXT"], ["network", "TEXT"], ["device", "TEXT"], ["fingerprint", "TEXT"]],
 };
@@ -864,7 +880,8 @@ export default {
     const gone = await env.DB.prepare(
       `DELETE FROM images WHERE created_at < ?
          AND id NOT IN (SELECT image_id FROM events WHERE image_id IS NOT NULL)
-         AND id NOT IN (SELECT image_id FROM news WHERE image_id IS NOT NULL)`
+         AND id NOT IN (SELECT image_id FROM news WHERE image_id IS NOT NULL)
+         AND NOT EXISTS (SELECT 1 FROM news WHERE gallery LIKE '%' || images.id || '%')`
     ).bind(old).run();
     if (gone.meta.changes) {
       await log(env, { label: "System" }, "photo_cleanup", "system", null, `Removed ${gone.meta.changes} unused photo(s)`);

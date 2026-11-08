@@ -123,6 +123,17 @@
   table.trail th { text-align: left; width: 40%; padding: 6px 8px; color: var(--muted); font-weight: 600; vertical-align: top; border-top: 1px solid var(--line); }
   table.trail td { padding: 6px 8px; border-top: 1px solid var(--line); word-break: break-word; }
   table.trail td.small { font-size: 0.82rem; }
+  .link-help { margin-top: 6px; }
+  .link-help code { background: #f1f4f9; padding: 1px 5px; border-radius: 3px; font-size: 0.85em; word-break: break-all; }
+  .gallery-edit { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+  .g-item { display: grid; grid-template-columns: 96px 1fr auto; gap: 10px; align-items: start; background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 8px; }
+  .g-item img { width: 96px; height: 72px; object-fit: cover; border-radius: 4px; }
+  .g-item input { width: 100%; margin-bottom: 6px; }
+  .g-btns { display: flex; flex-direction: column; gap: 4px; }
+  .g-btns button { min-width: 40px; min-height: 34px; }
+  .card-gallery { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0; }
+  .card-gallery img { width: 64px; height: 48px; object-fit: cover; border-radius: 3px; }
+  @media (max-width: 560px) { .g-item { grid-template-columns: 72px 1fr; } .g-item img { width: 72px; height: 56px; } .g-btns { grid-column: 1 / -1; flex-direction: row; } }
 </style>
 </head>
 <body>
@@ -282,8 +293,9 @@
       <input type="hidden" name="id">
       <div class="field"><label>Headline</label><input name="title_en" required maxlength="140"></div>
       <div class="field"><label>Summary <span class="hint">one or two sentences shown on the homepage</span></label><textarea name="summary_en" required maxlength="300" style="min-height:70px"></textarea></div>
-      <div class="field"><label>Full story <span class="hint">optional, shown when people tap "Read more"</span></label><textarea name="body_en" maxlength="5000"></textarea></div>
-      <div class="field"><label>Photo <span class="hint">optional, one per story</span></label>
+      <div class="field"><label>Full story <span class="hint">optional, shown on the story's own page. Leave a blank line between paragraphs.</span></label><textarea name="body_en" maxlength="20000" style="min-height:200px"></textarea>
+        <p class="hint link-help"><strong>Adding a link:</strong> paste the web address, e.g. <code>https://www.conwy.gov.uk</code>, or to show words instead, write <code>[Conwy Council](https://www.conwy.gov.uk)</code>.</p></div>
+      <div class="field"><label>Main photo <span class="hint">optional, shown at the top and on the homepage</span></label>
         <input type="hidden" name="image_id">
         <div class="photo-box">
           <img id="nw-photo-preview" alt="" hidden>
@@ -297,12 +309,21 @@
       </div>
       <div class="field" id="nw-alt-field" hidden><label>Describe the photo <span class="hint">for people using screen readers, e.g. "Volunteers putting up the Christmas lights"</span></label>
         <input name="image_alt" maxlength="200"></div>
+      <div class="field"><label>More photos <span class="hint">optional, up to 40, shown under the story. Add a caption to each if you like.</span></label>
+        <input type="hidden" name="gallery">
+        <div id="nw-gallery" class="gallery-edit"></div>
+        <div class="photo-actions">
+          <label class="btn" for="nw-gallery-file">Add photos</label>
+          <input id="nw-gallery-file" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden>
+          <span class="hint" id="nw-gallery-status" role="status"></span>
+        </div>
+      </div>
       <div class="field"><label>Category</label><input name="category_en" maxlength="40" placeholder="Community" list="cats"></div>
       <datalist id="cats"><option>Community</option><option>Roads</option><option>Volunteering</option><option>Thank you</option><option>Clubs</option><option>School</option><option>Weather</option></datalist>
       <details class="welsh"><summary>Welsh version (optional)</summary>
         <div class="field"><label>Pennawd</label><input name="title_cy" maxlength="140"></div>
         <div class="field"><label>Crynodeb</label><textarea name="summary_cy" maxlength="300" style="min-height:70px"></textarea></div>
-        <div class="field"><label>Y stori lawn</label><textarea name="body_cy" maxlength="5000"></textarea></div>
+        <div class="field"><label>Y stori lawn</label><textarea name="body_cy" maxlength="20000" style="min-height:160px"></textarea></div>
         <div class="field"><label>Categori</label><input name="category_cy" maxlength="40" placeholder="Cymuned"></div>
       </details>
       <div class="actions"><button class="btn primary" type="submit" id="nw-save">Save</button><a class="btn" href="#news">Cancel</a></div>

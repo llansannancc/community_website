@@ -110,6 +110,7 @@ function cardHTML(kind, it) {
        ${it.description_en ? `<div class="desc">${esc(it.description_en)}</div>` : ""}`
     : `<div class="meta">${esc(it.category_en)}${it.published_at ? ` · published ${ago(it.published_at)}` : ""}</div>
        ${photoHTML(it)}
+       ${(() => { let g = []; try { g = JSON.parse(it.gallery || "[]"); } catch {} return g.length ? `<div class="meta">${g.length} more photo${g.length === 1 ? "" : "s"}:</div><div class="card-gallery">${g.slice(0, 12).map((p) => `<img src="/img/${esc(p.id)}" alt="" loading="lazy" title="${esc(p.cap_en || "")}">`).join("")}${g.length > 12 ? `<span class="hint">+${g.length - 12}</span>` : ""}</div>` : ""; })()}
        ${it.source === "public" && it.status === "pending" ? `<div class="note info">The first part of their story is used as the summary on the homepage. Use <strong>Edit</strong> to tidy the wording or add a Welsh version before approving.</div>` : ""}
        <div class="desc"><strong>${esc(it.summary_en)}</strong>${it.body_en ? "\n\n" + esc(it.body_en) : ""}</div>`;
 
@@ -267,6 +268,48 @@ for (const prefix of ["nw", "ev"]) {
   $(`${prefix}-photo-remove`).onclick = () => showPhoto(prefix, "", "");
 }
 
+// ---------- more photos on a news post ----------
+let gallery = [];
+function drawGallery() {
+  $("nw-gallery").innerHTML = gallery.map((g, i) => `<div class="g-item" data-i="${i}">
+      <img src="/img/${esc(g.id)}" alt="">
+      <div><input class="g-cap" data-k="cap_en" maxlength="300" placeholder="Caption (optional)" value="${esc(g.cap_en || "")}">
+        <input class="g-cap" data-k="cap_cy" maxlength="300" placeholder="Capsiwn Cymraeg (dewisol)" value="${esc(g.cap_cy || "")}"></div>
+      <div class="g-btns"><button class="btn" type="button" data-g="up" ${i ? "" : "disabled"} aria-label="Move up">↑</button>
+        <button class="btn" type="button" data-g="down" ${i < gallery.length - 1 ? "" : "disabled"} aria-label="Move down">↓</button>
+        <button class="btn danger" type="button" data-g="remove" aria-label="Remove photo">✕</button></div></div>`).join("");
+  $("nw-gallery").querySelectorAll(".g-item").forEach((row) => {
+    const i = +row.dataset.i;
+    row.querySelectorAll(".g-cap").forEach((inp) => inp.addEventListener("input", () => (gallery[i][inp.dataset.k] = inp.value)));
+    row.querySelectorAll("[data-g]").forEach((b) => b.onclick = () => {
+      if (b.dataset.g === "remove") gallery.splice(i, 1);
+      if (b.dataset.g === "up") [gallery[i - 1], gallery[i]] = [gallery[i], gallery[i - 1]];
+      if (b.dataset.g === "down") [gallery[i + 1], gallery[i]] = [gallery[i], gallery[i + 1]];
+      drawGallery();
+    });
+  });
+}
+function setGallery(json) { try { gallery = JSON.parse(json || "[]") || []; } catch { gallery = []; } drawGallery(); }
+$("nw-gallery-file").addEventListener("change", async (e) => {
+  const files = [...e.target.files]; e.target.value = "";
+  const status = $("nw-gallery-status");
+  const room = 40 - gallery.length;
+  if (files.length > room) toast(`A post can have up to 40 extra photos, so only the first ${Math.max(room, 0)} will be added.`);
+  const todo = files.slice(0, Math.max(room, 0));
+  let n = 0, failed = 0;
+  for (const file of todo) {
+    status.textContent = `Uploading ${++n} of ${todo.length}…`;
+    try {
+      const blob = await shrinkPhoto(file);
+      const res = await fetch("/api/admin/images", { method: "POST", headers: { "content-type": "image/jpeg", ...(devAs ? { "x-dev-user": devAs } : {}) }, body: blob });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(out.error || "Upload failed");
+      gallery.push({ id: out.id, cap_en: "", cap_cy: "" }); drawGallery();
+    } catch { failed++; }
+  }
+  status.textContent = failed ? `${failed} photo(s) couldn't be added. Please try those again.` : "";
+});
+
 async function openNewsForm(id) {
   const f = $("nw-form"); f.reset(); f.elements.id.value = ""; $("nw-msg").textContent = "";
   const lead = me.role === "lead";
@@ -276,16 +319,19 @@ async function openNewsForm(id) {
     if (!it) { toast("That post couldn't be found."); location.hash = "#news"; return; }
     fillForm(f, it); f.elements.id.value = it.id;
     showPhoto("nw", it.image_id, it.image_alt);
+    setGallery(it.gallery);
     $("nw-form-title").textContent = "Edit news post";
     $("nw-form-intro").textContent = it.status === "approved" && !lead ? "This post is live. If you save changes, it will come off the website until another moderator approves it." : "";
   } else {
     showPhoto("nw", "", "");
+    setGallery(null);
     $("nw-form-title").textContent = "Add a news post";
     $("nw-form-intro").textContent = lead ? "As a lead moderator, your post goes live as soon as you save it." : "Once saved, another moderator needs to approve your post before it goes live.";
   }
 }
 $("nw-form").addEventListener("submit", async (e) => {
   e.preventDefault();
+  e.target.elements.gallery.value = gallery.length ? JSON.stringify(gallery) : "";
   const d = formData(e.target), msg = $("nw-msg");
   const id = d.id; delete d.id;
   msg.className = "msg"; msg.textContent = "Saving…";
