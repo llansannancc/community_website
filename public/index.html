@@ -307,6 +307,30 @@
   .event-photo { width: 100%; max-height: 420px; object-fit: cover; border-radius: 6px; margin-bottom: 16px; display: block; background: var(--blue-soft); }
   .list-thumb { flex-shrink: 0; width: 96px; height: 72px; object-fit: cover; border-radius: 4px; margin-left: auto; align-self: center; }
   [hidden] { display: none !important; }
+  /* Community photos */
+  .sec-intro { color: var(--muted); margin: -6px 0 14px; }
+  .photo-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+  .photo-tile { position: relative; display: block; border-radius: 6px; overflow: hidden; background: var(--blue-soft); aspect-ratio: 1; }
+  .photo-tile img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .2s; }
+  .photo-tile:hover img { transform: scale(1.04); }
+  .photo-tile .cap { position: absolute; left: 0; right: 0; bottom: 0; padding: 18px 8px 6px; background: linear-gradient(transparent, rgba(10,25,50,.75)); color: #fff; font-size: 0.82rem; line-height: 1.3; }
+  .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; margin: 16px 0; }
+  .photo-empty { background: var(--blue-soft); border-radius: 6px; padding: 16px; margin-bottom: 14px; }
+  .photo-big { width: 100%; max-height: 75vh; object-fit: contain; background: #111; border-radius: 6px; display: block; }
+  .photo-info { margin: 12px 0; }
+  .photo-info h2 { font-family: var(--head); color: var(--blue-dark); font-size: 1.6rem; margin-bottom: 4px; }
+  .photo-info .meta { color: var(--muted); font-size: 0.95rem; }
+  .photo-nav { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; margin-top: 10px; align-items: center; }
+  .photo-nav > :first-child { justify-self: start; } .photo-nav > :last-child { justify-self: end; }
+  .photo-nav .btn { padding-left: 12px; padding-right: 12px; }
+  .tip-box { background: var(--blue-soft); border-left: 4px solid var(--accent); border-radius: 4px; padding: 12px 16px; margin-bottom: 16px; }
+  .tip-box ul { margin: 6px 0 0 20px; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 640px) {
+    .photo-strip { grid-template-columns: repeat(2, 1fr); }
+    .photo-grid { grid-template-columns: repeat(2, 1fr); }
+    .field-row { grid-template-columns: 1fr; }
+  }
   .head-links { display: flex; gap: 6px; flex-wrap: wrap; align-items: baseline; }
   details.welsh-opt { margin: 0 0 14px; }
   details.welsh-opt summary { cursor: pointer; font-weight: 600; color: var(--blue); margin-bottom: 10px; min-height: 44px; display: flex; align-items: center; }
@@ -361,6 +385,8 @@
         <li><a href="#groups"><span class="en">Clubs &amp; Groups</span><span class="cy">Clybiau a Grwpiau</span></a></li>
         <li><a href="#services"><span class="en">Local services</span><span class="cy">Gwasanaethau lleol</span></a></li>
         <li><a href="#send-news"><span class="en">Send us your news</span><span class="cy">Anfonwch eich newyddion</span></a></li>
+        <li><a href="#photos"><span class="en">Photos from the village</span><span class="cy">Lluniau o'r pentref</span></a></li>
+        <li><a href="#share-photo"><span class="en">Share a photo</span><span class="cy">Rhannu llun</span></a></li>
         <li><a class="council-link" href="#contact" target="_blank" rel="noopener"><span class="en">Community Council <span class="ext" aria-hidden="true">↗</span></span><span class="cy">Cyngor Cymuned <span class="ext" aria-hidden="true">↗</span></span></a></li>
       </ul></li>
     <li><a href="#news" data-p="news"><span class="en">News</span><span class="cy">Newyddion</span></a></li>
@@ -460,6 +486,21 @@
           <p class="fb-small"><span class="en">Something to share? Post it in the group, or</span><span class="cy">Rhywbeth i'w rannu? Rhowch o yn y grŵp, neu</span> <a href="#send-news"><span class="en">send it to us</span><span class="cy">anfonwch o atom ni</span></a>.</p>
         </aside>
       </div>
+    </div>
+  </section>
+
+  <section id="your-photos">
+    <div class="wrap">
+      <div class="sec-head">
+        <h2><span class="en">Your photos</span><span class="cy">Eich lluniau</span></h2>
+        <span class="head-links"><a href="#share-photo"><span class="en">Share a photo</span><span class="cy">Rhannu llun</span></a> · <a href="#photos"><span class="en">All photos ›</span><span class="cy">Pob llun ›</span></a></span>
+      </div>
+      <p class="sec-intro"><span class="en">The weather, the views and life around Llansannan, taken by people who live here.</span><span class="cy">Y tywydd, y golygfeydd a bywyd o gwmpas Llansannan, gan bobl sy'n byw yma.</span></p>
+      <div class="photo-strip" id="photo-strip"></div>
+      <div class="photo-empty" id="photo-empty" hidden>
+        <p><span class="en">No photos yet. Be the first to share one!</span><span class="cy">Dim lluniau eto. Byddwch y cyntaf i rannu un!</span></p>
+      </div>
+      <a class="btn btn-primary" href="#share-photo"><span class="en">📷 Share your photo</span><span class="cy">📷 Rhannwch eich llun</span></a>
     </div>
   </section>
 
@@ -654,6 +695,79 @@
   </div>
 </div>
 
+<div class="page wrap inner" id="page-photos">
+  <div class="crumb"><a href="#home"><span class="en">Home</span><span class="cy">Hafan</span></a> › <span class="en">Photos</span><span class="cy">Lluniau</span></div>
+  <h2 class="title"><span class="en">Photos from the village</span><span class="cy">Lluniau o'r pentref</span></h2>
+  <p><span class="en">The weather, the views and life around Llansannan, Bylchau and Bro Aled, shared by local people. Tap a photo to see it bigger.</span><span class="cy">Y tywydd, y golygfeydd a bywyd o gwmpas Llansannan, Bylchau a Bro Aled, wedi'u rhannu gan bobl leol. Tapiwch lun i'w weld yn fwy.</span></p>
+  <p><a class="btn btn-primary" href="#share-photo"><span class="en">📷 Share your photo</span><span class="cy">📷 Rhannwch eich llun</span></a></p>
+  <div class="photo-grid" id="photo-grid"></div>
+  <p id="photo-more-wrap" hidden><button class="btn btn-outline" type="button" id="photo-more"><span class="en">Show more photos</span><span class="cy">Dangos mwy o luniau</span></button></p>
+</div>
+
+<div class="page wrap inner" id="page-photo">
+  <div class="crumb"><a href="#home"><span class="en">Home</span><span class="cy">Hafan</span></a> › <a href="#photos"><span class="en">Photos</span><span class="cy">Lluniau</span></a></div>
+  <div id="photo-view"></div>
+</div>
+
+<div class="page wrap inner" id="page-share-photo">
+  <div class="crumb"><a href="#home"><span class="en">Home</span><span class="cy">Hafan</span></a> › <a href="#photos"><span class="en">Photos</span><span class="cy">Lluniau</span></a> › <span class="en">Share a photo</span><span class="cy">Rhannu llun</span></div>
+  <h2 class="title"><span class="en">Share your photo</span><span class="cy">Rhannwch eich llun</span></h2>
+  <p class="form"><span class="en">Snow on the hills, a rainbow over the village, the river in flood, a lovely sunset? Send us your photo. A volunteer moderator will check it before it appears on the website.</span><span class="cy">Eira ar y bryniau, enfys dros y pentref, yr afon mewn llif, machlud hyfryd? Anfonwch eich llun atom. Bydd cymedrolwr gwirfoddol yn ei wirio cyn iddo ymddangos ar y wefan.</span></p>
+  <div class="tip-box form"><strong><span class="en">Before you send</span><span class="cy">Cyn anfon</span></strong>
+    <ul><li><span class="en">Only send photos you took yourself.</span><span class="cy">Anfonwch luniau rydych chi wedi'u tynnu eich hun yn unig.</span></li>
+    <li><span class="en">Please don't send close-ups of people without asking them first, and no photos of children.</span><span class="cy">Peidiwch ag anfon lluniau agos o bobl heb ofyn iddynt yn gyntaf, a dim lluniau o blant.</span></li>
+    <li><span class="en">Hidden location details are removed from your photo automatically.</span><span class="cy">Mae manylion lleoliad cudd yn cael eu tynnu o'ch llun yn awtomatig.</span></li></ul></div>
+  <form id="photo-form" class="form" novalidate>
+    <fieldset>
+      <legend><span class="en">Your photo</span><span class="cy">Eich llun</span></legend>
+      <div class="field"><label for="p-photo"><span class="en">Photo</span><span class="cy">Llun</span> <span class="req">*</span></label>
+        <input type="hidden" name="image_id">
+        <div class="photo-box">
+          <img id="p-photo-preview" alt="" hidden>
+          <div class="photo-actions">
+            <label class="btn btn-outline" for="p-photo" id="p-photo-pick"><span class="en" data-alt="Change photo">Choose a photo</span><span class="cy" data-alt="Newid llun">Dewis llun</span></label>
+            <input id="p-photo" type="file" accept="image/*" class="visually-hidden">
+            <button class="btn btn-outline" type="button" id="p-photo-remove" hidden><span class="en">Remove</span><span class="cy">Tynnu</span></button>
+            <span class="hint" id="p-photo-status" role="status"></span>
+          </div>
+        </div>
+      </div>
+      <div class="field"><label for="p-caption"><span class="en">What does it show?</span><span class="cy">Beth sydd yn y llun?</span> <span class="req">*</span> <span class="hint"><span class="en">For example: First snow of the winter on Mynydd Hiraethog</span><span class="cy">Er enghraifft: Eira cyntaf y gaeaf ar Fynydd Hiraethog</span></span></label>
+        <input id="p-caption" name="title_en" required maxlength="200"></div>
+      <div class="field"><label for="p-caption-cy"><span class="en">Caption in Welsh</span><span class="cy">Capsiwn yn Gymraeg</span> <span class="hint"><span class="en">Optional</span><span class="cy">Dewisol</span></span></label>
+        <input id="p-caption-cy" name="title_cy" maxlength="200"></div>
+      <div class="field-row">
+        <div class="field"><label for="p-place"><span class="en">Where was it taken?</span><span class="cy">Ble cafodd ei dynnu?</span> <span class="hint"><span class="en">Optional</span><span class="cy">Dewisol</span></span></label>
+          <input id="p-place" name="place" maxlength="100" placeholder="e.g. Bryn Rhyd yr Arian"></div>
+        <div class="field"><label for="p-date"><span class="en">When?</span><span class="cy">Pryd?</span> <span class="hint"><span class="en">Optional</span><span class="cy">Dewisol</span></span></label>
+          <input id="p-date" name="taken_on" type="date"></div>
+      </div>
+      <div class="field"><label for="p-credit"><span class="en">Name to show with the photo</span><span class="cy">Enw i'w ddangos gyda'r llun</span> <span class="hint"><span class="en">Optional. Leave blank if you'd rather not be named.</span><span class="cy">Dewisol. Gadewch yn wag os nad ydych eisiau cael eich enwi.</span></span></label>
+        <input id="p-credit" name="credit" maxlength="80" placeholder="e.g. Siân, Llansannan"></div>
+    </fieldset>
+    <fieldset>
+      <legend><span class="en">Your details</span><span class="cy">Eich manylion</span></legend>
+      <p class="hint" style="margin-bottom:10px"><span class="en">Only our moderators see these, in case they need to check something with you. They are never shown on the website.</span><span class="cy">Dim ond ein cymedrolwyr sy'n gweld y rhain, rhag ofn bod angen gwirio rhywbeth gyda chi. Nid ydynt byth yn cael eu dangos ar y wefan.</span></p>
+      <div class="field"><label for="p-name"><span class="en">Your name</span><span class="cy">Eich enw</span> <span class="req">*</span></label><input id="p-name" name="contact_name" required maxlength="120" autocomplete="name"></div>
+      <div class="field"><label for="p-email"><span class="en">Your email</span><span class="cy">Eich e-bost</span> <span class="req">*</span></label><input id="p-email" name="contact_email" type="email" required maxlength="200" autocomplete="email"></div>
+      <div class="field"><label for="p-phone"><span class="en">Phone</span><span class="cy">Ffôn</span> <span class="hint"><span class="en">Optional</span><span class="cy">Dewisol</span></span></label><input id="p-phone" name="contact_phone" type="tel" maxlength="40" autocomplete="tel"></div>
+      <div class="hp" aria-hidden="true"><label>Leave this empty <input name="website" tabindex="-1" autocomplete="off"></label></div>
+      <label class="check"><input type="checkbox" name="mine" required>
+        <span><span class="en">I took this photo and I'm happy for it to be shown on the website.</span><span class="cy">Fi dynnodd y llun hwn ac rwy'n hapus iddo gael ei ddangos ar y wefan.</span></span></label>
+      <label class="check"><input type="checkbox" name="consent" required>
+        <span><span class="en">I agree to my details being used to check this photo, as explained in the</span><span class="cy">Rwy'n cytuno i'm manylion gael eu defnyddio i wirio'r llun hwn, fel yr esbonnir yn yr</span> <a href="#privacy" target="_blank"><span class="en">privacy notice</span><span class="cy">hysbysiad preifatrwydd</span></a>.</span></label>
+    </fieldset>
+    <div id="ts-widget-photo"></div>
+    <button class="btn btn-primary" type="submit"><span class="en">Send for approval</span><span class="cy">Anfon i'w gymeradwyo</span></button>
+    <p id="photo-msg" class="form-msg" role="status" aria-live="polite"></p>
+  </form>
+  <div id="photo-done" class="done-box" hidden>
+    <h3><span class="en">Thank you — diolch!</span><span class="cy">Diolch yn fawr!</span></h3>
+    <p><span class="en">Your photo has been sent to our moderators. Once it's approved it will appear on the website.</span><span class="cy">Mae eich llun wedi'i anfon at ein cymedrolwyr. Unwaith y caiff ei gymeradwyo bydd yn ymddangos ar y wefan.</span></p>
+    <button id="photo-again" class="btn btn-outline" type="button"><span class="en">Share another photo</span><span class="cy">Rhannu llun arall</span></button>
+  </div>
+</div>
+
 <div class="page wrap inner" id="page-send-news">
   <div class="crumb"><a href="#home"><span class="en">Home</span><span class="cy">Hafan</span></a> › <a href="#news"><span class="en">News</span><span class="cy">Newyddion</span></a> › <span class="en">Send us your news</span><span class="cy">Anfonwch eich newyddion</span></div>
   <h2 class="title"><span class="en">Send us your news</span><span class="cy">Anfonwch eich newyddion</span></h2>
@@ -711,7 +825,7 @@
   <div class="form">
     <p><span class="en">This community website is supported by Llansannan Community Council (Cyngor Cymuned Llansannan) and run by councillors and local volunteers. The Council is responsible for any personal information collected through the website (it is the "data controller"). We keep personal information to a minimum.</span><span class="cy">Cefnogir y wefan gymunedol hon gan Gyngor Cymuned Llansannan ac fe'i rhedir gan gynghorwyr a gwirfoddolwyr lleol. Y Cyngor sy'n gyfrifol am unrhyw wybodaeth bersonol a gesglir drwy'r wefan (ef yw'r "rheolydd data"). Rydym yn cadw cyn lleied o wybodaeth bersonol â phosibl.</span></p>
     <h3 class="sub"><span class="en">When you send us an event or news</span><span class="cy">Pan fyddwch yn anfon digwyddiad neu newyddion atom</span></h3>
-    <p><span class="en">We ask for your name, email and (optionally) phone number so a moderator can contact you about what you've sent. Only our moderators (councillors and appointed volunteers) can see these details. They are never shown on the website, shared or used for anything else. They are deleted automatically 30 days after your event has taken place, or 30 days after your news has been dealt with. If you send a photo, it's shown with your event or news once approved; hidden details in the photo file, such as where it was taken, are removed automatically. When you send a photo we also record your internet (IP) address, rough location, internet provider and type of device, to help protect the website from unsuitable photos. Only moderators can see these, and they are deleted as soon as the photo is approved, or after 30 days. If a moderator reports a photo as unsuitable, the photo is deleted, and these details and the contact details you gave are kept for 90 days so they can be passed to the police if needed.</span><span class="cy">Rydym yn gofyn am eich enw, e-bost a (dewisol) rhif ffôn er mwyn i gymedrolwr allu cysylltu â chi am yr hyn rydych wedi'i anfon. Dim ond ein cymedrolwyr (cynghorwyr a gwirfoddolwyr penodedig) all weld y manylion hyn. Nid ydynt byth yn cael eu dangos ar y wefan, eu rhannu na'u defnyddio i unrhyw beth arall. Cânt eu dileu yn awtomatig 30 diwrnod ar ôl i'ch digwyddiad gael ei gynnal, neu 30 diwrnod ar ôl delio â'ch newyddion. Os byddwch yn anfon llun, bydd yn cael ei ddangos gyda'ch digwyddiad neu newyddion unwaith y caiff ei gymeradwyo; mae manylion cudd yn y ffeil, fel ble y tynnwyd y llun, yn cael eu tynnu'n awtomatig. Pan fyddwch yn anfon llun rydym hefyd yn cofnodi eich cyfeiriad rhyngrwyd (IP), lleoliad bras, darparwr rhyngrwyd a math o ddyfais, i helpu i ddiogelu'r wefan rhag lluniau anaddas. Dim ond cymedrolwyr all weld y rhain, ac maent yn cael eu dileu cyn gynted ag y caiff y llun ei gymeradwyo, neu ar ôl 30 diwrnod. Os bydd cymedrolwr yn adrodd llun fel un anaddas, caiff y llun ei ddileu, a chedwir y manylion hyn a'r manylion cyswllt a roesoch am 90 diwrnod fel y gellir eu rhoi i'r heddlu os oes angen.</span></p>
+    <p><span class="en">We ask for your name, email and (optionally) phone number so a moderator can contact you about what you've sent. Only our moderators (councillors and appointed volunteers) can see these details. They are never shown on the website, shared or used for anything else. They are deleted automatically 30 days after your event has taken place, or 30 days after your news has been dealt with. If you send a photo, it's shown with your event or news, or in the village photo gallery, once approved, along with the caption and the name you chose to show (if any); hidden details in the photo file, such as where it was taken, are removed automatically. When you send a photo we also record your internet (IP) address, rough location, internet provider and type of device, to help protect the website from unsuitable photos. Only moderators can see these, and they are deleted as soon as the photo is approved, or after 30 days. If a moderator reports a photo as unsuitable, the photo is deleted, and these details and the contact details you gave are kept for 90 days so they can be passed to the police if needed.</span><span class="cy">Rydym yn gofyn am eich enw, e-bost a (dewisol) rhif ffôn er mwyn i gymedrolwr allu cysylltu â chi am yr hyn rydych wedi'i anfon. Dim ond ein cymedrolwyr (cynghorwyr a gwirfoddolwyr penodedig) all weld y manylion hyn. Nid ydynt byth yn cael eu dangos ar y wefan, eu rhannu na'u defnyddio i unrhyw beth arall. Cânt eu dileu yn awtomatig 30 diwrnod ar ôl i'ch digwyddiad gael ei gynnal, neu 30 diwrnod ar ôl delio â'ch newyddion. Os byddwch yn anfon llun, bydd yn cael ei ddangos gyda'ch digwyddiad neu newyddion, neu yn oriel luniau'r pentref, unwaith y caiff ei gymeradwyo, gyda'r capsiwn a'r enw a ddewisoch (os o gwbl); mae manylion cudd yn y ffeil, fel ble y tynnwyd y llun, yn cael eu tynnu'n awtomatig. Pan fyddwch yn anfon llun rydym hefyd yn cofnodi eich cyfeiriad rhyngrwyd (IP), lleoliad bras, darparwr rhyngrwyd a math o ddyfais, i helpu i ddiogelu'r wefan rhag lluniau anaddas. Dim ond cymedrolwyr all weld y rhain, ac maent yn cael eu dileu cyn gynted ag y caiff y llun ei gymeradwyo, neu ar ôl 30 diwrnod. Os bydd cymedrolwr yn adrodd llun fel un anaddas, caiff y llun ei ddileu, a chedwir y manylion hyn a'r manylion cyswllt a roesoch am 90 diwrnod fel y gellir eu rhoi i'r heddlu os oes angen.</span></p>
     <h3 class="sub"><span class="en">Where it's stored</span><span class="cy">Ble mae'n cael ei gadw</span></h3>
     <p><span class="en">The website and its database are hosted by Cloudflare, with the database kept in the European Union. The form uses Cloudflare Turnstile to stop spam.</span><span class="cy">Mae'r wefan a'i chronfa ddata yn cael eu cynnal gan Cloudflare, gyda'r gronfa ddata yn yr Undeb Ewropeaidd. Mae'r ffurflen yn defnyddio Cloudflare Turnstile i atal sbam.</span></p>
     <h3 class="sub"><span class="en">Your rights</span><span class="cy">Eich hawliau</span></h3>

@@ -46,7 +46,7 @@ function howOften(it) {
   const range = it.starts_on && it.ends_on ? ` · ${fmt(it.starts_on)} to ${fmt(it.ends_on)}` : it.starts_on ? ` · from ${fmt(it.starts_on)}` : it.ends_on ? ` · until ${fmt(it.ends_on)}` : "";
   return `${base}, ${t}${range}`;
 }
-const EDIT_SLUG = { events: "event", news: "news", weekly: "weekly" };
+const EDIT_SLUG = { events: "event", news: "news", weekly: "weekly", photos: "photo" };
 
 // Two-click confirm for anything destructive (no pop-ups)
 function armed(btn, fn) {
@@ -69,7 +69,7 @@ function photoHTML(it) {
         <button class="btn" type="button" data-do="reveal">Show photo</button></div>
       <div class="note info">Photo sent in by the public. It's blurred until you choose to look. Check it's suitable before approving. If it's offensive, use <strong>Report photo</strong>: the photo is deleted straight away and a private record of who sent it, and where from, is kept for 90 days.</div>`;
   }
-  return `<img class="card-photo" src="/img/${esc(it.image_id)}" alt="${esc(it.image_alt || "")}" loading="lazy">`;
+  return `<img class="card-photo" src="/img/${esc(it.image_id)}" alt="${esc(it.image_alt || it.title_en || "")}" loading="lazy">`;
 }
 function cardHTML(kind, it) {
   const isEvent = kind === "events";
@@ -83,7 +83,7 @@ function cardHTML(kind, it) {
 
   const contact = (it.contact_name || it.contact_email || it.contact_phone)
     ? `<div class="contact"><strong>Contact (private):</strong> ${esc(it.contact_name || "")}
-       ${it.contact_email ? ` · <a href="mailto:${esc(it.contact_email)}?subject=${encodeURIComponent((isEvent ? "Your event: " : "Your news: ") + it.title_en)}">${esc(it.contact_email)}</a>` : ""}
+       ${it.contact_email ? ` · <a href="mailto:${esc(it.contact_email)}?subject=${encodeURIComponent((isEvent ? "Your event: " : kind === "photos" ? "Your photo: " : "Your news: ") + it.title_en)}">${esc(it.contact_email)}</a>` : ""}
        ${it.contact_phone ? ` · <a href="tel:${esc(it.contact_phone)}">${esc(it.contact_phone)}</a>` : ""}</div>` : "";
 
   let note = "";
@@ -101,7 +101,11 @@ function cardHTML(kind, it) {
   if (it.image_id && it.source === "public" && (it.status === "pending" || (it.status === "approved" && lead))) btns.push(`<button class="btn danger" data-do="report-open">Report photo</button>`);
   if (lead) btns.push(`<button class="btn danger" data-do="delete">Delete</button>`);
 
-  const body = kind === "weekly"
+  const body = kind === "photos"
+    ? `<div class="meta">${[it.place ? "📍 " + esc(it.place) : "", it.taken_on ? "Taken " + esc(new Date(it.taken_on + "T12:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })) : "", it.credit ? "Shown as: " + esc(it.credit) : "No name shown", it.published_at ? "published " + ago(it.published_at) : ""].filter(Boolean).join(" · ")}</div>
+       ${it.title_cy ? `<div class="meta">Cymraeg: ${esc(it.title_cy)}</div>` : ""}
+       ${photoHTML(it) || `<div class="note">The photo has been removed.</div>`}`
+    : kind === "weekly"
     ? `<div class="when">${howOften(it)}</div><div class="meta">📍 ${esc(it.location_en)}${it.organiser ? ` · Run by ${esc(it.organiser)}` : ""}</div>
        ${it.description_en ? `<div class="desc">${esc(it.description_en)}</div>` : ""}`
     : isEvent
@@ -122,7 +126,7 @@ function cardHTML(kind, it) {
     <div class="actions">${btns.join("")}</div>
     <div class="reject-box"><div class="field"><label>Reason <span class="hint">(optional, kept in the log)</span></label><textarea maxlength="500" style="min-height:70px"></textarea></div>
       <div class="actions"><button class="btn danger" data-do="reject">Confirm</button><button class="btn" data-do="reject-cancel">Cancel</button></div></div>
-    <div class="reject-box report-box"><p><strong>Report this photo?</strong> It will be deleted and this ${isEvent ? "event" : "story"} rejected. The sender's details, internet address and rough location are kept privately for 90 days, for lead moderators or the police. The same photo can't be sent again.</p>
+    <div class="reject-box report-box"><p><strong>Report this photo?</strong> It will be deleted and this ${isEvent ? "event" : kind === "photos" ? "photo" : "story"} rejected. The sender's details, internet address and rough location are kept privately for 90 days, for lead moderators or the police. The same photo can't be sent again.</p>
       <div class="field"><label>What's wrong with it? <span class="hint">(kept with the record)</span></label><textarea maxlength="500" style="min-height:70px" placeholder="For example: offensive image"></textarea></div>
       <div class="actions"><button class="btn danger" data-do="report">Report and delete photo</button><button class="btn" data-do="report-cancel">Cancel</button></div></div>
   </div>`;
@@ -153,27 +157,27 @@ function wireCards(container, reload) {
 
 // ---------- views ----------
 async function loadQueue() {
-  const [ev, nw, wk] = await Promise.all([api("/events?status=pending"), api("/news?status=pending"), api("/weekly?status=pending")]);
-  for (const [kind, out, el] of [["events", ev, $("q-events")], ["news", nw, $("q-news")], ["weekly", wk, $("q-weekly")]]) {
+  const [ev, nw, wk, ph] = await Promise.all([api("/events?status=pending"), api("/news?status=pending"), api("/weekly?status=pending"), api("/photos?status=pending")]);
+  for (const [kind, out, el] of [["events", ev, $("q-events")], ["news", nw, $("q-news")], ["weekly", wk, $("q-weekly")], ["photos", ph, $("q-photos")]]) {
     el.innerHTML = out.items.length ? out.items.map((it) => cardHTML(kind, it)).join("") : `<p class="empty">Nothing waiting.</p>`;
     wireCards(el, loadQueue);
   }
-  setCount(ev.items, nw.items, wk.items);
+  setCount(ev.items, nw.items, wk.items, ph.items);
 }
-function setCount(evs, nws, wks = []) {
+function setCount(evs, nws, wks = [], phs = []) {
   const lead = me.role === "lead";
-  const n = [...evs, ...nws, ...wks].filter((it) => lead || (it.submitted_by !== me.id && it.needs_other_than !== me.id)).length;
+  const n = [...evs, ...nws, ...wks, ...phs].filter((it) => lead || (it.submitted_by !== me.id && it.needs_other_than !== me.id)).length;
   $("c-queue").textContent = n || "";
 }
 async function refreshCount() {
-  const [ev, nw, wk] = await Promise.all([api("/events?status=pending"), api("/news?status=pending"), api("/weekly?status=pending")]);
-  setCount(ev.items, nw.items, wk.items);
+  const [ev, nw, wk, ph] = await Promise.all([api("/events?status=pending"), api("/news?status=pending"), api("/weekly?status=pending"), api("/photos?status=pending")]);
+  setCount(ev.items, nw.items, wk.items, ph.items);
 }
 
-const listState = { events: "approved", news: "approved", weekly: "approved" };
+const listState = { events: "approved", news: "approved", weekly: "approved", photos: "approved" };
 async function loadList(kind) {
   const out = await api(`/${kind}?status=${listState[kind]}`);
-  const el = $({ events: "l-events", news: "l-news", weekly: "l-weekly" }[kind]);
+  const el = $({ events: "l-events", news: "l-news", weekly: "l-weekly", photos: "l-photos" }[kind]);
   el.innerHTML = out.items.length ? out.items.map((it) => cardHTML(kind, it)).join("") : `<p class="empty">Nothing here.</p>`;
   wireCards(el, () => loadList(kind));
 }
@@ -244,12 +248,24 @@ function showPhoto(prefix, id, alt) {
   $(`${prefix}-photo-preview`).hidden = !id;
   if (id) $(`${prefix}-photo-preview`).src = `/img/${id}`;
   $(`${prefix}-photo-remove`).hidden = !id;
-  $(`${prefix}-alt-field`).hidden = !id;
+  if ($(`${prefix}-alt-field`)) $(`${prefix}-alt-field`).hidden = !id;
   $(`${prefix}-photo-pick`).textContent = id ? "Change photo" : "Choose a photo";
-  if (alt !== undefined) f.elements.image_alt.value = alt || "";
+  if (alt !== undefined && f.elements.image_alt) f.elements.image_alt.value = alt || "";
   $(`${prefix}-photo-status`).textContent = "";
 }
-for (const prefix of ["nw", "ev"]) {
+// A small preview for photo galleries (max 400px), made in the browser
+async function makeThumb(blob) {
+  const url = URL.createObjectURL(blob);
+  try {
+    const img = await new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = bad; i.src = url; });
+    const scale = Math.min(1, 400 / Math.min(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement("canvas");
+    c.width = Math.round(img.naturalWidth * scale); c.height = Math.round(img.naturalHeight * scale);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    return await new Promise((ok) => c.toBlob(ok, "image/jpeg", 0.75));
+  } finally { URL.revokeObjectURL(url); }
+}
+for (const prefix of ["nw", "ev", "ph"]) {
   $(`${prefix}-photo-file`).addEventListener("change", async (e) => {
     const file = e.target.files[0]; e.target.value = "";
     if (!file) return;
@@ -262,7 +278,8 @@ for (const prefix of ["nw", "ev"]) {
       const out = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(out.error || "Upload failed");
       showPhoto(prefix, out.id);
-      $(`${prefix}-form`).elements.image_alt.focus();
+      makeThumb(blob).then((t) => t && fetch(`/api/admin/images/${out.id}/thumb`, { method: "POST", headers: { "content-type": "image/jpeg", ...(devAs ? { "x-dev-user": devAs } : {}) }, body: t })).catch(() => {});
+      const next = $(`${prefix}-form`).elements[prefix === "ph" ? "title_en" : "image_alt"]; if (next) next.focus();
     } catch (err) { status.textContent = err.message; }
   });
   $(`${prefix}-photo-remove`).onclick = () => showPhoto(prefix, "", "");
@@ -339,6 +356,37 @@ $("nw-form").addEventListener("submit", async (e) => {
     const r = id ? await put(`/news/${id}`, d) : await post("/news", d);
     toast(r.unchanged ? "No changes to save." : r.status === "approved" ? "Saved: it's live on the website." : "Saved: waiting for another moderator to approve it.");
     location.hash = r.status === "approved" ? "#news" : "#queue";
+  } catch (err) { msg.className = "msg bad"; msg.textContent = err.message; }
+});
+
+// ---------- community photo form ----------
+async function openPhotoForm(id) {
+  const f = $("ph-form"); f.reset(); f.elements.id.value = ""; $("ph-msg").textContent = "";
+  const lead = me.role === "lead";
+  if (id) {
+    const { items } = await api("/photos?status=all");
+    const it = items.find((x) => x.id === id);
+    if (!it) { toast("That photo couldn't be found."); location.hash = "#photos"; return; }
+    fillForm(f, it); f.elements.id.value = it.id;
+    showPhoto("ph", it.image_id);
+    $("ph-form-title").textContent = "Edit photo";
+    $("ph-form-intro").textContent = it.status === "approved" && !lead ? "This photo is live. If you save changes, it will come off the website until another moderator approves it." : "";
+  } else {
+    showPhoto("ph", "");
+    $("ph-form-title").textContent = "Add a photo";
+    $("ph-form-intro").textContent = lead ? "As a lead moderator, your photo goes live as soon as you save it." : "Once saved, another moderator needs to approve it before it goes live.";
+  }
+}
+$("ph-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const d = formData(e.target), msg = $("ph-msg");
+  const id = d.id; delete d.id;
+  if (!d.image_id) { msg.className = "msg bad"; msg.textContent = "Please choose a photo."; return; }
+  msg.className = "msg"; msg.textContent = "Saving…";
+  try {
+    const r = id ? await put(`/photos/${id}`, d) : await post("/photos", d);
+    toast(r.unchanged ? "No changes to save." : r.status === "approved" ? "Saved: it's live on the website." : "Saved: waiting for another moderator to approve it.");
+    location.hash = r.status === "approved" ? "#photos" : "#queue";
   } catch (err) { msg.className = "msg bad"; msg.textContent = err.message; }
 });
 
@@ -460,14 +508,15 @@ $("log-more").onclick = () => loadLog(true);
 async function route() {
   if (!me) return;
   let h = (location.hash || "#queue").slice(1), v = h, id = null, m;
-  if ((m = h.match(/^edit-(event|news|weekly)-(\d+)$/))) { v = { event: "add-event", news: "add-news", weekly: "add-weekly" }[m[1]]; id = Number(m[2]); }
+  if ((m = h.match(/^edit-(event|news|weekly|photo)-(\d+)$/))) { v = { event: "add-event", news: "add-news", weekly: "add-weekly", photo: "add-photo" }[m[1]]; id = Number(m[2]); }
   if (!$("v-" + v) || ((v === "moderators" || v === "activity" || v === "reports") && me.role !== "lead")) v = "queue";
   document.querySelectorAll(".view").forEach((x) => x.classList.toggle("show", x.id === "v-" + v));
-  document.querySelectorAll("nav.tabs a").forEach((a) => a.classList.toggle("on", a.dataset.v === (id ? { "add-event": "events", "add-news": "news", "add-weekly": "weekly" }[v] : v)));
+  document.querySelectorAll("nav.tabs a").forEach((a) => a.classList.toggle("on", a.dataset.v === (id ? { "add-event": "events", "add-news": "news", "add-weekly": "weekly", "add-photo": "photos" }[v] : v)));
   window.scrollTo(0, 0);
   try {
     if (v === "queue") await loadQueue();
-    if (v === "events" || v === "news" || v === "weekly") await loadList(v);
+    if (v === "events" || v === "news" || v === "weekly" || v === "photos") await loadList(v);
+    if (v === "add-photo") await openPhotoForm(id);
     if (v === "add-weekly") await openWeeklyForm(id);
     if (v === "add-event") await openEventForm(id);
     if (v === "add-news") await openNewsForm(id);

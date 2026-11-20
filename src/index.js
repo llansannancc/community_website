@@ -61,6 +61,7 @@ function diff(before, after, fields) {
 // ---------- field definitions ----------
 const EVENT_FIELDS = ["title_en", "title_cy", "description_en", "description_cy", "location_en", "location_cy", "start_at", "end_at", "organiser", "contact_name", "contact_email", "contact_phone", "image_id", "image_alt"];
 const NEWS_FIELDS = ["title_en", "title_cy", "summary_en", "summary_cy", "body_en", "body_cy", "category_en", "category_cy", "image_id", "image_alt", "gallery"];
+const PHOTO_FIELDS = ["title_en", "title_cy", "place", "taken_on", "credit", "image_id"];
 const WEEKLY_FIELDS = ["title_en", "title_cy", "description_en", "description_cy", "location_en", "location_cy", "organiser",
   "day", "start_time", "end_time", "week_of_month", "starts_on", "ends_on"];
 
@@ -158,6 +159,22 @@ function galleryInput(v) {
   return out.length ? JSON.stringify(out) : null;
 }
 
+// Community photos: a caption, where and when it was taken, and the name to credit
+function photoInput(b) {
+  const taken = clean(b.taken_on, 10, { label: "Date taken" });
+  if (taken && !/^\d{4}-\d{2}-\d{2}$/.test(taken)) httpError(400, "Please give the date the photo was taken as a date.");
+  const image_id = imageId(b.image_id);
+  if (!image_id) httpError(400, "Please choose a photo.");
+  return {
+    title_en: clean(b.title_en, 200, { required: true, label: "Caption" }),
+    title_cy: clean(b.title_cy, 200, { label: "Welsh caption" }),
+    place: clean(b.place, 100, { label: "Where it was taken" }),
+    taken_on: taken || null,
+    credit: clean(b.credit, 80, { label: "Name to show" }),
+    image_id,
+  };
+}
+
 // ---------- Turnstile (spam protection on the public form) ----------
 async function checkTurnstile(token, request, env) {
   if (env.ENVIRONMENT === "development") return true; // local testing
@@ -197,6 +214,44 @@ async function publicNews(env) {
     "SELECT id, title_en, title_cy, summary_en, summary_cy, body_en, body_cy, category_en, category_cy, image_id, image_alt, gallery, published_at FROM news WHERE status = 'approved' ORDER BY published_at DESC LIMIT 30"
   ).all();
   return json({ news: results });
+}
+
+async function publicPhotos(env) {
+  const { results } = await env.DB.prepare(
+    "SELECT id, title_en, title_cy, place, taken_on, credit, image_id, published_at FROM photos WHERE status = 'approved' AND image_id IS NOT NULL ORDER BY published_at DESC LIMIT 200"
+  ).all();
+  return json({ photos: results });
+}
+
+// "Share a photo": the weather, the view, the village. A moderator approves each one before it's shown.
+async function submitPhoto(request, env) {
+  const b = await readJson(request);
+  if (b.website) return json({ ok: true }); // honeypot
+  if (env.PUBLIC_PHOTOS === "off") httpError(403, "Sorry, we're not taking photos at the moment.");
+  if (!(await checkTurnstile(b.turnstile, request, env))) httpError(400, "Please complete the spam check and try again.");
+  if (!b.consent) httpError(400, "Please tick the boxes to confirm the photo is yours and you agree to the privacy notice.");
+  const data = photoInput(b);
+  const contact_name = clean(b.contact_name, 120, { required: true, label: "Your name" });
+  const contact_email = clean(b.contact_email, 200, { required: true, label: "Your email" });
+  const contact_phone = clean(b.contact_phone, 40, { label: "Phone" });
+  if (!EMAIL.test(contact_email)) httpError(400, "Please give a valid email address.");
+  const img = await env.DB.prepare("SELECT id FROM images WHERE id = ? AND source = 'public'").bind(data.image_id).first();
+  if (!img) httpError(400, "That photo couldn't be found. Please choose it again.");
+  const taken = await env.DB.prepare("SELECT 1 AS x FROM photos WHERE image_id = ? UNION ALL SELECT 1 FROM events WHERE image_id = ? UNION ALL SELECT 1 FROM news WHERE image_id = ? LIMIT 1")
+    .bind(data.image_id, data.image_id, data.image_id).first();
+  if (taken) httpError(400, "That photo has already been sent. Please choose it again.");
+  const r = await env.DB.prepare(
+    `INSERT INTO photos (title_en, title_cy, place, taken_on, credit, image_id, contact_name, contact_email, contact_phone, status, source)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'public')`
+  ).bind(data.title_en, data.title_cy, data.place, data.taken_on, data.credit, data.image_id, contact_name, contact_email, contact_phone).run();
+  const id = r.meta.last_row_id;
+  await log(env, { label: `Public: ${contact_name} <${contact_email}>` }, "submitted", "photo", id, `Photo sent in by the public: "${data.title_en}"`);
+  await notifyModerators(env, {
+    subject: `Photo to approve: ${data.title_en}`,
+    lines: ["Someone has shared a photo for the website.", `Caption: ${data.title_en}`, `Sent by: ${contact_name} (${contact_email})`, "Please check the photo before approving."],
+    link: "/admin/#queue",
+  });
+  return json({ ok: true });
 }
 
 async function submitEvent(request, env) {
@@ -297,8 +352,9 @@ const KINDS = {
   event:  { table: "events", fields: EVENT_FIELDS,  input: (b) => eventInput(b, { isPublic: false }), label: "event",            title: "Event",    order: "t.start_at" },
   news:   { table: "news",   fields: NEWS_FIELDS,   input: newsInput,   label: "news post",        title: "Headline", order: "COALESCE(t.published_at, t.created_at) DESC", published: true },
   weekly: { table: "weekly", fields: WEEKLY_FIELDS, input: weeklyInput, label: "regular activity", title: "Activity", order: "t.day, t.start_time" },
+  photo:  { table: "photos", fields: PHOTO_FIELDS,  input: photoInput,  label: "photo",            title: "Caption",  order: "COALESCE(t.published_at, t.created_at) DESC", published: true },
 };
-const KIND_BY_PATH = { events: "event", news: "news", weekly: "weekly" };
+const KIND_BY_PATH = { events: "event", news: "news", weekly: "weekly", photos: "photo" };
 
 async function loadItem(env, table, id) {
   const row = await env.DB.prepare(`SELECT * FROM ${table} WHERE id = ?`).bind(id).first();
@@ -392,10 +448,10 @@ async function editItem(env, me, kind, id, b) {
 
 /** If this item has a photo sent in by the public, delete the photo now (used when rejecting or deleting). */
 async function removePublicPhoto(env, table, item) {
-  if ((table !== "events" && table !== "news") || !item.image_id) return false;
+  if (!["events", "news", "photos"].includes(table) || !item.image_id) return false;
   const img = await env.DB.prepare("SELECT source FROM images WHERE id = ?").bind(item.image_id).first();
   if (!img || img.source !== "public") return false;
-  await env.DB.prepare(`UPDATE ${table} SET image_id = NULL, image_alt = NULL WHERE id = ?`).bind(item.id).run();
+  await env.DB.prepare(table === "photos" ? "UPDATE photos SET image_id = NULL WHERE id = ?" : `UPDATE ${table} SET image_id = NULL, image_alt = NULL WHERE id = ?`).bind(item.id).run();
   await env.DB.prepare("DELETE FROM images WHERE id = ?").bind(item.image_id).run();
   return true;
 }
@@ -471,6 +527,7 @@ async function reviewItem(env, me, kind, id, action, b) {
     const sql = kind === "event"
       ? "UPDATE events SET status = 'deleted', contact_name = NULL, contact_email = NULL, contact_phone = NULL, image_id = NULL WHERE id = ?"
       : kind === "news" ? "UPDATE news SET status = 'deleted', image_id = NULL, contact_name = NULL, contact_email = NULL, contact_phone = NULL WHERE id = ?"
+      : kind === "photo" ? "UPDATE photos SET status = 'deleted', image_id = NULL, contact_name = NULL, contact_email = NULL, contact_phone = NULL WHERE id = ?"
       : `UPDATE ${table} SET status = 'deleted' WHERE id = ?`;
     await removePublicPhoto(env, table, item);
     await env.DB.prepare(sql).bind(id).run();
@@ -609,6 +666,29 @@ async function uploadImage(request, env, me) {
   return json({ id });
 }
 
+// A small preview (about 400px) made by the browser at upload time, used for photo galleries so phones
+// don't download every full-size photo. Only allowed once per photo, and soon after it was uploaded.
+const MAX_THUMB_BYTES = 120_000;
+async function saveThumb(request, env, id, { me = null } = {}) {
+  if (!IMAGE_ID.test(id)) httpError(404, "Not found.");
+  const img = await env.DB.prepare("SELECT source, ip_hash, uploaded_by, created_at, thumb IS NOT NULL AS has FROM images WHERE id = ?").bind(id).first();
+  if (!img) httpError(404, "Not found.");
+  if (img.has) httpError(409, "This photo already has a preview.");
+  if (Date.now() - new Date(img.created_at).getTime() > 30 * 60000) httpError(409, "Too late to add a preview to this photo.");
+  if (!me) {
+    const ip = request.headers.get("CF-Connecting-IP") || "local";
+    if (img.source !== "public" || img.ip_hash !== (await sha256hex(`llansannan:${ip}`))) httpError(403, "Not allowed.");
+  }
+  const type = (request.headers.get("content-type") || "").split(";")[0].trim();
+  if (type !== "image/jpeg") httpError(400, "The preview must be a JPEG.");
+  let bytes = new Uint8Array(await request.arrayBuffer());
+  if (!bytes.length || bytes.length > MAX_THUMB_BYTES) httpError(400, "The preview is too large.");
+  bytes = stripJpegMetadata(bytes);
+  if (!bytes) httpError(400, "The preview isn't a JPEG.");
+  await env.DB.prepare("UPDATE images SET thumb = ? WHERE id = ?").bind(toBase64(bytes), id).run();
+  return json({ ok: true });
+}
+
 // Members of the public can attach one photo to an event or news they send in. It isn't shown anywhere
 // until a moderator approves it. Limited to a few uploads per hour from each connection.
 const PUBLIC_UPLOADS_PER_HOUR = 6;
@@ -645,14 +725,18 @@ async function sha256hex(text) {
 
 async function serveImage(request, env, id) {
   if (!IMAGE_ID.test(id)) return fail(404, "Not found.");
-  const row = await env.DB.prepare("SELECT mime, data, source FROM images WHERE id = ?").bind(id).first();
+  // ?s=t asks for the small preview, if there is one
+  const small = new URL(request.url).searchParams.get("s") === "t";
+  const row = small
+    ? await env.DB.prepare("SELECT CASE WHEN thumb IS NOT NULL THEN 'image/jpeg' ELSE mime END AS mime, COALESCE(thumb, data) AS data, source FROM images WHERE id = ?").bind(id).first()
+    : await env.DB.prepare("SELECT mime, data, source FROM images WHERE id = ?").bind(id).first();
   if (!row) return fail(404, "Not found.");
   let cache = "public, max-age=86400";
   if (row.source === "public") {
     // A photo sent in by the public is only shown once a moderator has approved its event.
     // Until then only signed-in moderators can see it, even if someone has the link.
     const live = await env.DB.prepare(
-      "SELECT 1 AS ok FROM events WHERE image_id = ?1 AND status = 'approved' UNION ALL SELECT 1 FROM news WHERE image_id = ?1 AND status = 'approved' LIMIT 1"
+      "SELECT 1 AS ok FROM events WHERE image_id = ?1 AND status = 'approved' UNION ALL SELECT 1 FROM news WHERE image_id = ?1 AND status = 'approved' UNION ALL SELECT 1 FROM photos WHERE image_id = ?1 AND status = 'approved' LIMIT 1"
     ).bind(id).first();
     if (!live) {
       if (!(await currentModerator(request, env))) return fail(404, "Not found.");
@@ -674,9 +758,10 @@ async function handleAdmin(request, env, url, me) {
 
   if (path === "/me" && method === "GET") return json({ me });
   if (path === "/images" && method === "POST") return await uploadImage(request, env, me);
+  if ((m = path.match(/^\/images\/([a-f0-9]{32})\/thumb$/)) && method === "POST") return await saveThumb(request, env, m[1], { me });
 
   // Events and news share the same routes
-  if ((m = path.match(/^\/(events|news|weekly)$/))) {
+  if ((m = path.match(/^\/(events|news|weekly|photos)$/))) {
     const kind = KIND_BY_PATH[m[1]];
     if (method === "GET") {
       const items = await listItems(env, kind, url);
@@ -684,10 +769,10 @@ async function handleAdmin(request, env, url, me) {
     }
     if (method === "POST") return json(await createItem(env, me, kind, await readJson(request)));
   }
-  if ((m = path.match(/^\/(events|news|weekly)\/(\d+)$/)) && method === "PUT") {
+  if ((m = path.match(/^\/(events|news|weekly|photos)\/(\d+)$/)) && method === "PUT") {
     return json(await editItem(env, me, KIND_BY_PATH[m[1]], Number(m[2]), await readJson(request)));
   }
-  if ((m = path.match(/^\/(events|news|weekly)\/(\d+)\/(approve|reject|restore|delete|report)$/)) && method === "POST") {
+  if ((m = path.match(/^\/(events|news|weekly|photos)\/(\d+)\/(approve|reject|restore|delete|report)$/)) && method === "POST") {
     const body = request.headers.get("content-length") === "0" ? {} : await request.json().catch(() => ({}));
     return json(await reviewItem(env, me, KIND_BY_PATH[m[1]], Number(m[2]), m[3], body));
   }
@@ -803,9 +888,20 @@ const NEW_COLUMNS = {
   news: [["image_id", "TEXT"], ["image_alt", "TEXT"], ["source", "TEXT NOT NULL DEFAULT 'moderator'"],
          ["contact_name", "TEXT"], ["contact_email", "TEXT"], ["contact_phone", "TEXT"], ["gallery", "TEXT"]],
   events: [["image_id", "TEXT"], ["image_alt", "TEXT"]],
-  images: [["source", "TEXT"], ["ip_hash", "TEXT"], ["ip", "TEXT"], ["place", "TEXT"], ["network", "TEXT"], ["device", "TEXT"], ["fingerprint", "TEXT"]],
+  images: [["thumb", "TEXT"], ["source", "TEXT"], ["ip_hash", "TEXT"], ["ip", "TEXT"], ["place", "TEXT"], ["network", "TEXT"], ["device", "TEXT"], ["fingerprint", "TEXT"]],
 };
 const SCHEMA_UPDATES = [
+  `CREATE TABLE IF NOT EXISTS photos (
+     id INTEGER PRIMARY KEY AUTOINCREMENT, title_en TEXT NOT NULL, title_cy TEXT, place TEXT, taken_on TEXT, credit TEXT,
+     image_id TEXT, source TEXT NOT NULL DEFAULT 'moderator',
+     status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'deleted')),
+     submitted_by INTEGER REFERENCES moderators(id), last_edited_by INTEGER REFERENCES moderators(id),
+     needs_other_than INTEGER REFERENCES moderators(id), reviewed_by INTEGER REFERENCES moderators(id),
+     reviewed_at TEXT, reject_reason TEXT, published_at TEXT,
+     contact_name TEXT, contact_email TEXT, contact_phone TEXT,
+     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')))`,
+  `CREATE INDEX IF NOT EXISTS idx_photos_status_pub ON photos (status, published_at)`,
   `CREATE TABLE IF NOT EXISTS sessions (id INTEGER PRIMARY KEY AUTOINCREMENT, token_hash TEXT NOT NULL UNIQUE,
      moderator_id INTEGER NOT NULL REFERENCES moderators(id), created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
      expires_at TEXT NOT NULL, device TEXT)`,
@@ -847,6 +943,9 @@ export default {
       if (url.pathname === "/api/events/submit" && request.method === "POST") return await submitEvent(request, env);
       if ((url.pathname === "/api/events/photo" || url.pathname === "/api/photo") && request.method === "POST") return await uploadPublicImage(request, env);
       if (url.pathname === "/api/news/submit" && request.method === "POST") return await submitNews(request, env);
+      if (url.pathname === "/api/photos" && request.method === "GET") return await publicPhotos(env);
+      { const t = url.pathname.match(/^\/api\/photo\/([a-f0-9]{32})\/thumb$/); if (t && request.method === "POST") return await saveThumb(request, env, t[1]); }
+      if (url.pathname === "/api/photos/submit" && request.method === "POST") return await submitPhoto(request, env);
 
       if (url.pathname.startsWith("/api/auth/")) return await handleAuth(request, env, url);
 
@@ -881,6 +980,7 @@ export default {
       `DELETE FROM images WHERE created_at < ?
          AND id NOT IN (SELECT image_id FROM events WHERE image_id IS NOT NULL)
          AND id NOT IN (SELECT image_id FROM news WHERE image_id IS NOT NULL)
+         AND id NOT IN (SELECT image_id FROM photos WHERE image_id IS NOT NULL)
          AND NOT EXISTS (SELECT 1 FROM news WHERE gallery LIKE '%' || images.id || '%')`
     ).bind(old).run();
     if (gone.meta.changes) {
@@ -907,6 +1007,12 @@ export default {
     ).bind(monthAgo).run();
     if (n.meta.changes) {
       await log(env, { label: "System" }, "privacy_cleanup", "system", null, `Removed contact details from ${n.meta.changes} news stories sent in by the public, 30 days after they were dealt with`);
+    }
+    const ph = await env.DB.prepare(
+      "UPDATE photos SET contact_name = NULL, contact_email = NULL, contact_phone = NULL WHERE COALESCE(reviewed_at, created_at) < ? AND status != 'pending' AND (contact_email IS NOT NULL OR contact_name IS NOT NULL OR contact_phone IS NOT NULL)"
+    ).bind(cutoff).run();
+    if (ph.meta.changes) {
+      await log(env, { label: "System" }, "privacy_cleanup", "system", null, `Removed contact details from ${ph.meta.changes} photos sent in by the public, 30 days after they were dealt with`);
     }
   },
 };

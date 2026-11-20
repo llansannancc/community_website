@@ -260,6 +260,36 @@ window.scrollStrip = function (dir) {
   if (card) s.scrollBy({ left: dir * (card.offsetWidth + 14), behavior: "smooth" });
 };
 
+// ---------- community photos ----------
+let photos = [];
+const PHOTO_PAGE = 24;
+let photoShown = PHOTO_PAGE;
+const toPhoto = (r) => ({
+  id: r.id, src: "/img/" + encodeURIComponent(r.image_id), thumb: "/img/" + encodeURIComponent(r.image_id) + "?s=t",
+  en: esc(r.title_en), cy: esc(r.title_cy || r.title_en), place: esc(r.place || ""), credit: esc(r.credit || ""),
+  taken: r.taken_on ? new Date(r.taken_on + "T12:00") : null,
+});
+const tile = (ph) => `<a class="photo-tile" href="#photo-${ph.id}"><img src="${ph.thumb}" alt="${ph.en}" loading="lazy"><span class="cap">${both(ph.en, ph.cy)}</span></a>`;
+function drawPhotos() {
+  $("photo-strip").innerHTML = photos.slice(0, 8).map(tile).join("");
+  $("photo-empty").hidden = photos.length > 0;
+  $("photo-grid").innerHTML = photos.slice(0, photoShown).map(tile).join("") || `<p>${both("No photos yet. Be the first to share one!", "Dim lluniau eto. Byddwch y cyntaf i rannu un!")}</p>`;
+  $("photo-more-wrap").hidden = photos.length <= photoShown;
+}
+$("photo-more").addEventListener("click", () => { photoShown += PHOTO_PAGE; drawPhotos(); });
+function renderPhoto(id) {
+  const i = photos.findIndex((x) => x.id === id); if (i < 0) return false;
+  const ph = photos[i], prev = photos[i - 1], next = photos[i + 1];
+  const when = ph.taken ? both(ph.taken.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }), ph.taken.toLocaleDateString("cy-GB", { day: "numeric", month: "long", year: "numeric" })) : "";
+  const bits = [ph.place ? `📍 ${ph.place}` : "", when, ph.credit ? both(`Photo: ${ph.credit}`, `Llun: ${ph.credit}`) : ""].filter(Boolean);
+  $("photo-view").innerHTML = `<img class="photo-big" src="${ph.src}" alt="${ph.en}">
+    <div class="photo-info"><h2>${both(ph.en, ph.cy)}</h2>${bits.length ? `<div class="meta">${bits.join(" · ")}</div>` : ""}</div>
+    <div class="photo-nav">${prev ? `<a class="btn btn-outline" href="#photo-${prev.id}">${both("‹ Newer", "‹ Mwy diweddar")}</a>` : "<span></span>"}
+      <a class="btn btn-outline" href="#photos">${both("All photos", "Pob llun")}</a>
+      ${next ? `<a class="btn btn-outline" href="#photo-${next.id}">${both("Older ›", "Hŷn ›")}</a>` : "<span></span>"}</div>`;
+  return true;
+}
+
 // ---------- routing, language, menu ----------
 function show(p) {
   document.querySelectorAll(".page").forEach((x) => x.classList.toggle("show", x.id === "page-" + p));
@@ -273,6 +303,7 @@ function route() {
   let p = h;
   if (h.startsWith("event-")) p = renderDetail(Number(h.split("-")[1])) ? "event" : "home";
   if (h.startsWith("news-")) p = renderStory(Number(h.split("-")[1])) ? "story" : "news";
+  if (h.startsWith("photo-")) p = renderPhoto(Number(h.split("-")[1])) ? "photo" : "photos";
   if (!h.startsWith("news-")) document.title = "Llansannan Community";
   if (!$("page-" + p)) p = "home";
   if (FORMS[p]) prepareForm(p);
@@ -302,6 +333,7 @@ document.addEventListener("click", () => document.querySelectorAll(".menu > li.o
 const FORMS = {
   submit: { form: "submit-form", p: "f", url: "/api/events/submit", ts: "#ts-widget", msg: "submit-msg", done: "submit-done", again: "submit-again" },
   "send-news": { form: "news-form", p: "n", url: "/api/news/submit", ts: "#ts-widget-news", msg: "news-msg", done: "news-done", again: "news-again" },
+  "share-photo": { form: "photo-form", p: "p", url: "/api/photos/submit", ts: "#ts-widget-photo", msg: "photo-msg", done: "photo-done", again: "photo-again", needsPhoto: true },
 };
 const tsTokens = {}, tsDrawn = {};
 let cfgPromise = null, tsScript = null;
@@ -322,7 +354,10 @@ async function prepareForm(page) {
   const F = FORMS[page];
   if (page === "submit") $("f-date").min = key(today);
   const cfg = await getConfig();
-  if (cfg.publicPhotos === false) $(F.p + "-photo").closest(".field").hidden = true;
+  if (cfg.publicPhotos === false) {
+    if (F.needsPhoto) { $(F.form).hidden = true; $(F.msg).textContent = "Sorry, we're not taking photos at the moment. / Mae'n ddrwg gennym, nid ydym yn derbyn lluniau ar hyn o bryd."; $(F.form).after($(F.msg)); }
+    else $(F.p + "-photo").closest(".field").hidden = true;
+  }
   if (cfg.turnstileSiteKey && !tsDrawn[page]) {
     tsDrawn[page] = true;
     await loadTurnstile();
@@ -355,16 +390,32 @@ function setFormPhoto(F, id, previewBlob) {
   // Preview from the person's own copy (the uploaded one stays private until it's approved)
   if (id && previewBlob) $(p + "-photo-preview").src = URL.createObjectURL(previewBlob);
   $(p + "-photo-remove").hidden = !id;
-  $(p + "-alt-field").hidden = !id;
-  if (!id) f.elements.image_alt.value = "";
+  if ($(p + "-alt-field")) $(p + "-alt-field").hidden = !id;
+  if (!id && f.elements.image_alt) f.elements.image_alt.value = "";
   $(p + "-photo-pick").querySelectorAll("span[data-alt]").forEach((sp) => {
     if (!sp.dataset.orig) sp.dataset.orig = sp.textContent;
     sp.textContent = id ? sp.dataset.alt : sp.dataset.orig;
   });
 }
 
+// A small square-ish preview (max 400px) for photo galleries, made from the person's own copy
+async function makeThumb(blob) {
+  const url = URL.createObjectURL(blob);
+  try {
+    const img = await new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = bad; i.src = url; });
+    const scale = Math.min(1, 400 / Math.min(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement("canvas");
+    c.width = Math.round(img.naturalWidth * scale); c.height = Math.round(img.naturalHeight * scale);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    return await new Promise((ok) => c.toBlob(ok, "image/jpeg", 0.75));
+  } finally { URL.revokeObjectURL(url); }
+}
+
 function formBody(page, f) {
   const v = (n) => f.elements[n].value.trim();
+  if (page === "share-photo") return { image_id: v("image_id"), title_en: v("title_en"), title_cy: v("title_cy"), place: v("place"), taken_on: v("taken_on"), credit: v("credit"),
+    contact_name: v("contact_name"), contact_email: v("contact_email"), contact_phone: v("contact_phone"),
+    consent: f.elements.consent.checked && f.elements.mine.checked, website: v("website"), turnstile: tsTokens[page] || "" };
   const common = {
     image_id: v("image_id"), image_alt: v("image_alt"),
     contact_name: v("contact_name"), contact_email: v("contact_email"), contact_phone: v("contact_phone"),
@@ -394,6 +445,8 @@ Object.entries(FORMS).forEach(([page, F]) => {
       if (!res.ok) throw new Error(out.error || "Upload failed");
       setFormPhoto(F, out.id, blob);
       status.textContent = "";
+      // Small preview for the photo gallery (not essential, so any problem here is ignored)
+      makeThumb(blob).then((t) => t && fetch(`/api/photo/${out.id}/thumb`, { method: "POST", headers: { "content-type": "image/jpeg" }, body: t })).catch(() => {});
     } catch (err) { status.textContent = err.message; }
   });
   $(p + "-photo-remove").addEventListener("click", () => setFormPhoto(F, ""));
@@ -401,6 +454,8 @@ Object.entries(FORMS).forEach(([page, F]) => {
   $(F.form).addEventListener("submit", async (ev) => {
     ev.preventDefault();
     const f = ev.target, msg = $(F.msg), btn = f.querySelector("button[type=submit]");
+    if (F.needsPhoto && !f.elements.image_id.value) { msg.className = "form-msg bad"; msg.textContent = "Please choose a photo first. / Dewiswch lun yn gyntaf."; return; }
+    if (page === "share-photo" && !f.elements.mine.checked) { msg.className = "form-msg bad"; msg.textContent = "Please confirm the photo is yours. / Cadarnhewch mai eich llun chi yw hwn."; return; }
     btn.disabled = true; msg.className = "form-msg"; msg.textContent = "Sending… / Yn anfon…";
     try {
       const res = await fetch(F.url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(formBody(page, f)) });
@@ -420,15 +475,17 @@ Object.entries(FORMS).forEach(([page, F]) => {
 // ---------- start ----------
 async function load() {
   try {
-    const [e, n, w] = await Promise.all([
-      fetch("/api/events").then((r) => r.json()), fetch("/api/news").then((r) => r.json()), fetch("/api/weekly").then((r) => r.json())]);
+    const [e, n, w, ph] = await Promise.all([
+      fetch("/api/events").then((r) => r.json()), fetch("/api/news").then((r) => r.json()), fetch("/api/weekly").then((r) => r.json()),
+      fetch("/api/photos").then((r) => r.json()).catch(() => ({}))]);
+    photos = (ph.photos || []).map(toPhoto);
     regular = (w.weekly || []).map(toRegular);
     events = (e.events || []).map(toEvent);
     news = (n.news || []).map(toNews);
   } catch (err) {
     console.error("Could not load events/news", err);
   }
-  drawNextBox(); drawStrip(); buildDays(); drawDays(); drawFullList(); drawNews(); drawWeekly();
+  drawNextBox(); drawStrip(); buildDays(); drawDays(); drawFullList(); drawNews(); drawWeekly(); drawPhotos();
   route();
 }
 window.addEventListener("hashchange", route);
